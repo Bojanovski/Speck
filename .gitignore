@@ -254,4 +254,5 @@ paket-files/
 *.sln.iml
 
 # Project Speck specific ignores
-
+**/Build/*.exp
+**/Build/*.lib

@@ -256,3 +256,5 @@ paket-files/
 # Project Speck specific ignores
 **/Build/*.exp
 **/Build/*.lib
+
+**/SpeckEngine/ShadersBin/*

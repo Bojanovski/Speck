@@ -28,7 +28,7 @@ RWTexture2D<float4> gOutput			: register(u0);
 //#define CacheSize (N + 2*gMaxBlurRadius)
 //groupshared float4 gCache[CacheSize];
 
-[numthreads(N_THREADS, 1, 1)]
+[numthreads(CUBE_MAP_N_THREADS, 1, 1)]
 void main(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_DispatchThreadID)
 {
 	// Spherical to cartesian transformation
@@ -45,17 +45,17 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 dispatchThreadID : SV_Disp
 	right = normalize(cross(forward, up));
 	float3x3 M = float3x3(right, up, forward);
 	// If there are multiple batches of sampler ray groups the computation continues on previous work.
-	float4 res = gOutput[dispatchThreadID.xy] * (dispatchThreadID.z) * SAMPLER_RAYS_GROUP_COUNT;
+	float4 res = gOutput[dispatchThreadID.xy] * (dispatchThreadID.z) * CUBE_MAP_SAMPLER_RAYS_GROUP_COUNT;
 
 	[unroll]
-	for (int i = 0; i < SAMPLER_RAYS_GROUP_COUNT; ++i)
+	for (int i = 0; i < CUBE_MAP_SAMPLER_RAYS_GROUP_COUNT; ++i)
 	{
 		// Dynamically look up the texture in the random direction on the hemisphere.
-		float3 ray = gSamRays[i + (dispatchThreadID.z) * SAMPLER_RAYS_GROUP_COUNT].xyz;
+		float3 ray = gSamRays[i + (dispatchThreadID.z) * CUBE_MAP_SAMPLER_RAYS_GROUP_COUNT].xyz;
 		float3 sampledRay = mul(ray, M);
 		res += gCubeMap.SampleLevel(gsamLinearWrap, sampledRay, 0);
 	}
-	res /= (dispatchThreadID.z + 1) * SAMPLER_RAYS_GROUP_COUNT;
+	res /= (dispatchThreadID.z + 1) * CUBE_MAP_SAMPLER_RAYS_GROUP_COUNT;
 
 	//// Wait for all threads to finish.
 	//GroupMemoryBarrierWithGroupSync();

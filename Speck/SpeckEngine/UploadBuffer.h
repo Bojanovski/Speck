@@ -8,11 +8,25 @@
 
 namespace Speck
 {
-	template<typename T>
-	class UploadBuffer
+	// Just the base of the UploadBuffer to enable abstract handling.
+	class UploadBufferBase 
 	{
 	public:
-		UploadBuffer(ID3D12Device* device, UINT elementCount, bool isConstantBuffer) :
+		UploadBufferBase() = default;
+		virtual ~UploadBufferBase() = default;
+		UploadBufferBase(const UploadBufferBase& rhs) = delete;
+		UploadBufferBase& operator=(const UploadBufferBase& rhs) = delete;
+
+		virtual ID3D12Resource* Resource() const = 0;
+	};
+
+	// Template implementation of the derived class
+	template<typename T>
+	class UploadBuffer : public UploadBufferBase
+	{
+	public:
+		UploadBuffer(ID3D12Device* device, UINT elementCount, bool isConstantBuffer)
+			: UploadBufferBase(),
 			mIsConstantBuffer(isConstantBuffer)
 		{
 			mElementByteSize = sizeof(T);
@@ -51,7 +65,7 @@ namespace Speck
 			mMappedData = nullptr;
 		}
 
-		ID3D12Resource* Resource()const { return mUploadBuffer.Get(); }
+		ID3D12Resource* Resource() const override { return mUploadBuffer.Get(); }
 		void CopyData(int elementIndex, const T& data)
 		{
 			memcpy(&mMappedData[elementIndex*mElementByteSize], &data, sizeof(T));

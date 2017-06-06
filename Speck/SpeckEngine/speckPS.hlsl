@@ -15,9 +15,10 @@ struct VertexOut
 
 struct PixelOut
 {
-	float4 Color0    : SV_Target0; // color
-	float4 Color1    : SV_Target1; // normal
-	float4 Color2    : SV_Target2; // depth
+	float4 Color0		: SV_Target0; // color
+	float4 Color1		: SV_Target1; // normal
+	float Color2		: SV_Target2; // depth
+	float4 Color3		: SV_Target3; // PBR data
 };
 
 PixelOut main(VertexOut pin)
@@ -52,6 +53,7 @@ PixelOut main(VertexOut pin)
 
 	pout.Color0 = diffuseAlbedo;
 	pout.Color1 = NormalInWorldToTextel(pin.NormalW);
-	pout.Color2 = float4(0.0f, 0.0f, 1.0f, 1.0f);
+	pout.Color2 = pin.PosH.z;
+	pout.Color3 = float4(0.0f, 0.0f, 0.0f, 1.0f);
 	return pout;
 }

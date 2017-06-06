@@ -9,6 +9,9 @@ namespace Speck
 {
 	struct Material
 	{
+		Material() = default;
+		virtual ~Material() = default;
+
 		// Basic constants
 		DirectX::XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
 		DirectX::XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
@@ -27,6 +30,9 @@ namespace Speck
 	// Material that uses diffuse and normal map.
 	struct PBRMaterial : public Material
 	{
+		PBRMaterial() = default;
+		virtual ~PBRMaterial() override = default;
+
 		// SRV heap for textures.
 		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> mSrvDescriptorHeap = nullptr;
 

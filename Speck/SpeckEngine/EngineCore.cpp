@@ -2,7 +2,7 @@
 #include "EngineCore.h"
 #include "Camera.h"
 #include "InputHandler.h"
-#include "GameTimer.h"
+#include "Timer.h"
 #include "ProcessAndSystemData.h"
 #include "DirectXCore.h"
 
@@ -15,7 +15,7 @@ EngineCore::EngineCore()
 { 
 	mDefaultCamera			= make_unique<Camera>(*this);
 	mProcessAndSystemData	= make_unique<ProcessAndSystemData>();
-	mTimer					= make_unique<GameTimer>();
+	mTimer					= make_unique<Timer>();
 	mInputHandler			= make_unique<InputHandler>();
 	mDirectXCore			= make_unique<DirectXCore>();
 

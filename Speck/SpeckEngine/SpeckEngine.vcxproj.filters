@@ -16,6 +16,12 @@
     <Filter Include="Header Files\EngineUserInterface">
       <UniqueIdentifier>{4279389e-cbdf-4f2d-a076-62d32b05b9b4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Resource Files\Shaders">
+      <UniqueIdentifier>{7239437d-9681-4cc5-a1e1-b4ad0e1ff330}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Shaders\specksCS">
+      <UniqueIdentifier>{b1da27f4-393f-4189-ba80-263c5734a259}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp">
@@ -25,9 +31,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="D3DApp.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="GameTimer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="InputHandler.cpp">
@@ -79,6 +82,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DDSTextureGenerator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SpecksHandler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Timer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Transform.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -140,9 +152,6 @@
     <ClInclude Include="App.h">
       <Filter>Header Files\EngineUserInterface</Filter>
     </ClInclude>
-    <ClInclude Include="GameTimer.h">
-      <Filter>Header Files\EngineUserInterface</Filter>
-    </ClInclude>
     <ClInclude Include="InputHandler.h">
       <Filter>Header Files\EngineUserInterface</Filter>
     </ClInclude>
@@ -188,41 +197,106 @@
     <ClInclude Include="DDSTextureGenerator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SpecksHandler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Resources.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PhysicsDataStructs.h">
+      <Filter>Header Files\EngineUserInterface</Filter>
+    </ClInclude>
+    <ClInclude Include="Timer.h">
+      <Filter>Header Files\EngineUserInterface</Filter>
+    </ClInclude>
+    <ClInclude Include="Transform.h">
+      <Filter>Header Files\EngineUserInterface</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="speckVS.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="speckPS.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="standardVS.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="standardPS.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="irrMapCS.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
     <FxCompile Include="defferedAssemblerPS.hlsl">
-      <Filter>Resource Files</Filter>
+      <Filter>Resource Files\Shaders</Filter>
     </FxCompile>
     <FxCompile Include="defferedAssemblerVS.hlsl">
-      <Filter>Resource Files</Filter>
+      <Filter>Resource Files\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="irrMapCS.hlsl">
+      <Filter>Resource Files\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="speckPS.hlsl">
+      <Filter>Resource Files\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="speckVS.hlsl">
+      <Filter>Resource Files\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="standardPS.hlsl">
+      <Filter>Resource Files\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="standardVS.hlsl">
+      <Filter>Resource Files\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="specksCS_phase0.hlsl">
+      <Filter>Resource Files\Shaders\specksCS</Filter>
+    </FxCompile>
+    <FxCompile Include="specksCS_phase1.hlsl">
+      <Filter>Resource Files\Shaders\specksCS</Filter>
+    </FxCompile>
+    <FxCompile Include="specksCS_phase2.hlsl">
+      <Filter>Resource Files\Shaders\specksCS</Filter>
+    </FxCompile>
+    <FxCompile Include="specksCS_phaseFinal.hlsl">
+      <Filter>Resource Files\Shaders\specksCS</Filter>
+    </FxCompile>
+    <FxCompile Include="specksCS_phase3_0.hlsl">
+      <Filter>Resource Files\Shaders\specksCS</Filter>
+    </FxCompile>
+    <FxCompile Include="specksCS_phase3_1.hlsl">
+      <Filter>Resource Files\Shaders\specksCS</Filter>
+    </FxCompile>
+    <FxCompile Include="specksCS_phase4.hlsl">
+      <Filter>Resource Files\Shaders\specksCS</Filter>
+    </FxCompile>
+    <FxCompile Include="specksCS_phase6.hlsl">
+      <Filter>Resource Files\Shaders\specksCS</Filter>
+    </FxCompile>
+    <FxCompile Include="specksCS_phase5_0.hlsl">
+      <Filter>Resource Files\Shaders\specksCS</Filter>
+    </FxCompile>
+    <FxCompile Include="specksCS_phase5_1.hlsl">
+      <Filter>Resource Files\Shaders\specksCS</Filter>
+    </FxCompile>
+    <FxCompile Include="specksCS_phase5_2.hlsl">
+      <Filter>Resource Files\Shaders\specksCS</Filter>
+    </FxCompile>
+    <FxCompile Include="specksCS_phase5_3.hlsl">
+      <Filter>Resource Files\Shaders\specksCS</Filter>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="LightingUtil.hlsl">
-      <Filter>Resource Files</Filter>
+      <Filter>Resource Files\Shaders</Filter>
     </None>
     <None Include="shaderRoot.hlsl">
+      <Filter>Resource Files\Shaders</Filter>
+    </None>
+    <None Include="sharedStructures.hlsl">
+      <Filter>Resource Files\Shaders</Filter>
+    </None>
+    <None Include="milionPrimes.bin">
       <Filter>Resource Files</Filter>
+    </None>
+    <None Include="specksCS_Root.hlsl">
+      <Filter>Resource Files\Shaders\specksCS</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="cpuGpuDefines.txt">
+    <ResourceCompile Include="SpeckEngine.rc">
       <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="cpuGpuDefines.txt">
+      <Filter>Header Files\EngineUserInterface</Filter>
     </Text>
   </ItemGroup>
 </Project>

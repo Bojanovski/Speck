@@ -19,10 +19,17 @@ struct VertexOut
 	float2 TexC    : TEXCOORD;
 };
 
+float3 TextelToNormalInWorld(float4 normalT)
+{
+	// Decompress each component from [0,1] to [-1,1].
+	return (2.0f*normalT - 1.0f).xyz;
+}
+
 float4 ProcessPixel(float2 texCoord)
 {
 	float4 color = gTextureMaps[0].SampleLevel(gsamPointClamp, texCoord, 0);
-	return color;
+	float3 normal = TextelToNormalInWorld(gTextureMaps[1].SampleLevel(gsamPointClamp, texCoord, 0));
+	return color * (1.0f + max(0.0f, dot(normal, float3(0.0f, 1.0f, 0.0f))))*0.5f;
 }
 
 float4 main(VertexOut pin) : SV_Target

@@ -29,3 +29,20 @@ void DirectXCore::FlushCommandQueue()
 		CloseHandle(eventHandle);
 	}
 }
+
+#if defined(_DEBUG) || defined(DEBUG)
+GraphicsDebuggerAnnotator::GraphicsDebuggerAnnotator(DirectXCore &dxCore, const std::string &groupLabel)
+	: mDXCore(dxCore)
+{
+	// Warning: This is a support method used internally by the PIX event runtime.It is not intended to be called directly.
+
+	wstring ws(groupLabel.begin(), groupLabel.end());
+	ws.push_back(0);
+	mDXCore.GetCommandList()->BeginEvent(0, &ws[0], (UINT)ws.length()*sizeof(wchar_t));
+}
+
+GraphicsDebuggerAnnotator::~GraphicsDebuggerAnnotator()
+{
+	mDXCore.GetCommandList()->EndEvent();
+}
+#endif

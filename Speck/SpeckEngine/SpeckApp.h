@@ -27,14 +27,20 @@ namespace Speck
 		ID3D12RootSignature *GetRootSignature() { return mRootSignature.Get(); }
 		FrameResource *GetCurrentFrameResource() { return mCurrFrameResource; }
 		ID3D12Resource *GetDefaultTexture(UINT index) const { return mDefaultTextures[index]; }
+		DXGI_FORMAT GetDeferredRTFormat(int index) const { return mDeferredRTFormats[index]; }
 
 	private:
 		virtual void OnResize()override;
-		virtual void Update(const GameTimer& gt)override;
-		virtual void Draw(const GameTimer& gt)override;
+		// Update the system based values
+		virtual void Update(const Timer& gt)override;
+		// Update that is dependant on the command list.
+		virtual void PreDrawUpdate(const Timer& gt)override;
+		// Opens and closes the command list for current frame resource.
+		virtual void Draw(const Timer& gt)override;
 
-		void UpdateMaterialBuffer(const GameTimer& gt);
+		void UpdateMaterialBuffer(const Timer& gt);
 		void BuildDefaultTextures();
+		void BuildDefaultMaterials();
 		void BuildRootSignatures();
 		void BuildScreenGeometry();
 		void BuildSpeckGeometry();
@@ -42,7 +48,6 @@ namespace Speck
 		void BuildPSOs();
 		void BuildFrameResources();
 		void BuildDeferredRenderTargetsAndBuffers();
-		void BuildRenderItems();
 
 	public:
 		std::unordered_map<std::string, std::unique_ptr<MeshGeometry>>		mGeometries;
@@ -57,11 +62,14 @@ namespace Speck
 		std::vector<std::unique_ptr<FrameResource>> mFrameResources;
 		FrameResource* mCurrFrameResource = nullptr;
 		int mCurrFrameResourceIndex = 0;
-
+		
+		// To draw 3d object on MRT.
 		Microsoft::WRL::ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
 
 		// Deferred render targets buffers.
 		Microsoft::WRL::ComPtr<ID3D12Resource> mDeferredRTBs[DEFERRED_RENDER_TARGETS_COUNT];
+		DXGI_FORMAT mDeferredRTFormats[DEFERRED_RENDER_TARGETS_COUNT];
+		DirectX::XMVECTORF32 mDeferredRTClearColors[DEFERRED_RENDER_TARGETS_COUNT];
 		Microsoft::WRL::ComPtr<ID3D12Resource> mDeferredDepthStencilBuffer = nullptr;
 		CD3DX12_CPU_DESCRIPTOR_HANDLE mDeferredRTVHeapHandle;
 		CD3DX12_CPU_DESCRIPTOR_HANDLE mDeferredDSVHeapHandle;

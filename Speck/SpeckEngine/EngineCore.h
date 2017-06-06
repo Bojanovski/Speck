@@ -13,7 +13,7 @@ namespace Speck
 	//	passed to game components via pointer.
 	//-------------------------------------------------------------------------------------
 
-	class GameTimer;
+	class Timer;
 	struct ProcessAndSystemData;
 	class Camera;
 	class CameraController;
@@ -38,7 +38,7 @@ namespace Speck
 		Camera &GetCamera() { return *mCamera; }
 		CameraController &GetCameraController() { return *mCameraController; }
 		ProcessAndSystemData const *GetProcessAndSystemData() const { return mProcessAndSystemData.get(); }
-		GameTimer const *GetTimer() const { return mTimer.get(); }
+		Timer const *GetTimer() const { return mTimer.get(); }
 		DLL_EXPORT int GetClientHeight() const;
 		DLL_EXPORT int GetClientWidth() const;
 		DLL_EXPORT float GetAspectRatio() const;
@@ -60,7 +60,7 @@ namespace Speck
 		// Information about process and system.
 		std::unique_ptr<ProcessAndSystemData> mProcessAndSystemData;
 		// Used to keep track of the “delta-time” and game time (§4.4).
-		std::unique_ptr<GameTimer> mTimer;
+		std::unique_ptr<Timer> mTimer;
 		// Input stuff
 		std::unique_ptr<InputHandler> mInputHandler;
 		// All the DirectX stuff goes here

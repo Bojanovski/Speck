@@ -7,7 +7,7 @@
 #include "DirectXCore.h"
 #include "ProcessAndSystemData.h"
 #include "CameraController.h"
-#include "GameTimer.h"
+#include "Timer.h"
 #include "InputHandler.h"
 #include <psapi.h> // for system data
 #include <pdh.h>
@@ -46,7 +46,7 @@ static HANDLE self;
 		mApp = this;
 
 		// Members
-		GetEngineCore().mDefaultCamera->LookAt(XMFLOAT3(0.0f, 2.0f, -15.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f));
+		GetEngineCore().mDefaultCamera->LookAt(XMFLOAT3(0.0f, 8.0f, -10.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f));
 		CameraController defaultCC;
 		GetEngineCore().mDefaultCamera->Update(0.0f, &defaultCC);
 
@@ -280,16 +280,20 @@ static HANDLE self;
 		mAppStatesManager.OnResize();
 	}
 
-	void D3DApp::Update(const GameTimer &gt)
+	void D3DApp::Update(const Timer &t)
 	{
-		GetEngineCore().GetCamera().Update(gt.DeltaTime(), &GetEngineCore().GetCameraController());
-		GetEngineCore().mInputHandler->Update(gt.DeltaTime());
-		mAppStatesManager.Update(gt.DeltaTime());
+		GetEngineCore().GetCamera().Update(t.DeltaTime(), &GetEngineCore().GetCameraController());
+		GetEngineCore().mInputHandler->Update(t.DeltaTime());
+		mAppStatesManager.Update(t.DeltaTime());
 	}
 
-	void D3DApp::Draw(const GameTimer & gt)
+	void D3DApp::PreDrawUpdate(const Timer &t)
 	{
-		mAppStatesManager.Draw(gt.DeltaTime());
+	}
+
+	void D3DApp::Draw(const Timer &t)
+	{
+		mAppStatesManager.Draw(t.DeltaTime());
 	}
 
 	LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -532,7 +536,6 @@ static HANDLE self;
 		CreateCommandObjects();
 		CreateSwapChain();
 		CreateRtvAndDsvDescriptorHeaps();
-
 		return true;
 	}
 

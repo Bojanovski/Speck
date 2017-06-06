@@ -82,3 +82,185 @@ XMVECTOR MathHelper::RandHemisphereUnitVec3(XMVECTOR n)
 		return XMVector3Normalize(v);
 	}
 }
+
+XMMATRIX MathHelper::GetOuterProduct3X3(FXMVECTOR a, FXMVECTOR b)
+{
+	XMMATRIX ret;
+	// first row
+	ret.r[0].m128_f32[0] = a.m128_f32[0] * b.m128_f32[0];
+	ret.r[0].m128_f32[1] = a.m128_f32[0] * b.m128_f32[1];
+	ret.r[0].m128_f32[2] = a.m128_f32[0] * b.m128_f32[2];
+
+	// second row
+	ret.r[1].m128_f32[0] = a.m128_f32[1] * b.m128_f32[0];
+	ret.r[1].m128_f32[1] = a.m128_f32[1] * b.m128_f32[1];
+	ret.r[1].m128_f32[2] = a.m128_f32[1] * b.m128_f32[2];
+
+	// third row
+	ret.r[2].m128_f32[0] = a.m128_f32[2] * b.m128_f32[0];
+	ret.r[2].m128_f32[1] = a.m128_f32[2] * b.m128_f32[1];
+	ret.r[2].m128_f32[2] = a.m128_f32[2] * b.m128_f32[2];
+
+	return ret;
+}
+
+XMMATRIX MathHelper::GetOuterProduct2X2(FXMVECTOR a, FXMVECTOR b)
+{
+	XMMATRIX ret;
+	// first row
+	ret.r[0].m128_f32[0] = a.m128_f32[0] * b.m128_f32[0];
+	ret.r[0].m128_f32[1] = a.m128_f32[0] * b.m128_f32[1];
+
+	// second row
+	ret.r[1].m128_f32[0] = a.m128_f32[1] * b.m128_f32[0];
+	ret.r[1].m128_f32[1] = a.m128_f32[1] * b.m128_f32[1];
+
+	return ret;
+}
+
+void MathHelper::QR_Decomposition3X3(CXMMATRIX A, XMMATRIX *Q, XMMATRIX *QT, XMMATRIX *R)
+{
+	// https://en.wikipedia.org/wiki/QR_decomposition
+	// Householder implementation
+	XMMATRIX AT = XMMatrixTranspose(A);
+	XMVECTOR x = AT.r[0];
+	float alpha = XMVectorGetX(XMVector3Length(x));
+	XMVECTOR e1 = XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);
+	XMVECTOR u = x - alpha*e1;
+	XMVECTOR v = XMVector3Normalize(u);
+
+	if (XMVectorGetX(XMVector3Length(u)) == 0.0f)
+		v = XMVectorZero();
+
+
+	XMMATRIX Q1 = XMMatrixIdentity() - 2.0f * GetOuterProduct3X3(v, v);
+	XMMATRIX Q1T = XMMatrixTranspose(Q1);
+
+	XMMATRIX Q1_mul_A = XMMatrixMultiply3X3(Q1, A);
+	XMMATRIX A_11;
+	A_11.r[0].m128_f32[0] = Q1_mul_A.r[1].m128_f32[1];
+	A_11.r[0].m128_f32[1] = Q1_mul_A.r[1].m128_f32[2];
+	A_11.r[1].m128_f32[0] = Q1_mul_A.r[2].m128_f32[1];
+	A_11.r[1].m128_f32[1] = Q1_mul_A.r[2].m128_f32[2];
+	XMMATRIX A_11T = XMMatrixTranspose(A_11);
+
+	x = A_11T.r[0];
+	alpha = XMVectorGetX(XMVector2Length(x));
+	e1 = XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);
+	u = x - alpha*e1;
+	v = XMVector2Normalize(u);
+
+
+	if (XMVectorGetX(XMVector2Length(u)) == 0.0f)
+		v = XMVectorZero();
+
+
+	XMMATRIX Q2_small = XMMatrixIdentity() - 2.0f * GetOuterProduct2X2(v, v);
+	XMMATRIX Q2 = XMMatrixIdentity();
+	Q2.r[1].m128_f32[1] = Q2_small.r[0].m128_f32[0];
+	Q2.r[1].m128_f32[2] = Q2_small.r[0].m128_f32[1];
+	Q2.r[2].m128_f32[1] = Q2_small.r[1].m128_f32[0];
+	Q2.r[2].m128_f32[2] = Q2_small.r[1].m128_f32[1];
+	XMMATRIX Q2T = XMMatrixTranspose(Q2);
+
+	*Q = XMMatrixMultiply3X3(Q1T, Q2T);
+	*QT = XMMatrixMultiply3X3(Q2, Q1);
+	*R = XMMatrixMultiply3X3(*QT, A);
+}
+
+void MathHelper::GetEigendecompositionSymmetric3X3(CXMMATRIX A, UINT iterations, XMVECTOR *eigenValues, XMMATRIX *eigenVectors)
+{
+	*eigenVectors = XMMatrixIdentity();
+	XMMATRIX Qk;
+	XMMATRIX QTk;
+	XMMATRIX Rk;
+	XMMATRIX Ak = A;
+	for (UINT k = 0; k < iterations; k++)
+	{
+		MathHelper::QR_Decomposition3X3(Ak, &Qk, &QTk, &Rk);
+		*eigenVectors *= Qk;
+		Ak = XMMatrixMultiply3X3(XMMatrixMultiply3X3(QTk, Ak), Qk);
+	}
+
+	*eigenValues = XMVectorSet(
+		Ak.r[0].m128_f32[0],
+		Ak.r[1].m128_f32[1], 
+		Ak.r[2].m128_f32[2], 
+		0.0f);
+}
+
+XMVECTOR MathHelper::GetEigenvaluesSymmetric3X3(CXMMATRIX A)
+{
+	// From https://en.wikipedia.org/wiki/Eigenvalue_algorithm
+	// Given a real symmetric 3x3 matrix A, compute the eigenvalues
+	float p1 = A.r[0].m128_f32[1] * A.r[0].m128_f32[1] + A.r[0].m128_f32[2] * A.r[0].m128_f32[2] + A.r[1].m128_f32[2] * A.r[1].m128_f32[2];
+	float eig1, eig2, eig3;
+	if (p1 == 0.0f)
+	{
+		// A is diagonal.
+		eig1 = A.r[0].m128_f32[0];
+		eig2 = A.r[1].m128_f32[1];
+		eig3 = A.r[2].m128_f32[2];
+	}
+	else
+	{
+		float q = GetTrace3X3(A) / 3.0f;
+		float p2 = powf(A.r[0].m128_f32[0] - q, 2.0f) + powf(A.r[1].m128_f32[1] - q, 2.0f) + powf(A.r[2].m128_f32[2] - q, 2.0f) + 2.0f * p1;
+		float p = sqrt(p2 / 6.0f);
+		XMMATRIX B = (1.0f / p) * (A - q * XMMatrixIdentity()); // I is the identity matrix
+		float r = GetDeterminant3X3(B) * 0.5f;
+
+		// In exact arithmetic for a symmetric matrix - 1 <= r <= 1
+		// but computation error can leave it slightly outside this range.
+		float phi;
+		if (r <= -1.0f)
+			phi = XM_PI / 3.0f;
+		else if (r >= 1.0f)
+			phi = 0.0f;
+		else
+			phi = acos(r) / 3.0f;
+
+		// the eigenvalues satisfy eig3 <= eig2 <= eig1
+		eig1 = q + 2.0f * p * cos(phi);
+		eig3 = q + 2.0f * p * cos(phi + (2.0f * XM_PI / 3.0f));
+		eig2 = 3.0f * q - eig1 - eig3;    // since trace(A) = eig1 + eig2 + eig3
+	}
+	return XMVectorSet(eig1, eig2, eig3, 0.0f);
+}
+
+XMMATRIX MathHelper::GetInverse3X3(CXMMATRIX M)
+{
+	// From https://en.wikipedia.org/wiki/Invertible_matrix#Inversion_of_3_.C3.97_3_matrices
+	float a = M.r[0].m128_f32[0];
+	float b = M.r[0].m128_f32[1];
+	float c = M.r[0].m128_f32[2];
+
+	float d = M.r[1].m128_f32[0];
+	float e = M.r[1].m128_f32[1];
+	float f = M.r[1].m128_f32[2];
+
+	float g = M.r[2].m128_f32[0];
+	float h = M.r[2].m128_f32[1];
+	float i = M.r[2].m128_f32[2];
+
+	float A = (e*i - f*h);
+	float D = -(b*i - c*h);
+	float G = (b*f - c*e);
+
+	float B = -(d*i - f*g);
+	float E = (a*i - c*g);
+	float H = -(a*f - c*d);
+
+	float C = (d*h - e*g);
+	float F = -(a*h - b*g);
+	float I = (a*e - b*d);
+
+	float detM = a*A + b*B + c*C;
+	float invDetM = 1.0f / detM;
+	XMMATRIX ret;
+	ret.r[0] = invDetM * XMVectorSet(A, D, G, 0.0f);
+	ret.r[1] = invDetM * XMVectorSet(B, E, H, 0.0f);
+	ret.r[2] = invDetM * XMVectorSet(C, F, I, 0.0f);
+	ret.r[3] = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+	return ret;
+}

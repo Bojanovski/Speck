@@ -18,6 +18,7 @@ namespace Speck
 	struct ObjectConstants
 	{
 		DirectX::XMFLOAT4X4 World = MathHelper::Identity4x4();
+		DirectX::XMFLOAT4X4 InvTransposeWorld = MathHelper::Identity4x4();
 		DirectX::XMFLOAT4X4 TexTransform = MathHelper::Identity4x4();
 		UINT     MaterialIndex = 0;
 	};
@@ -75,7 +76,7 @@ namespace Speck
 	{
 	public:
 
-		FrameResource(ID3D12Device* device, UINT passCount, UINT maxInstanceCount, UINT maxSingleCount, UINT materialCount);
+		FrameResource(ID3D12Device* device, UINT passCount, UINT maxSingleCount, UINT materialCount);
 		FrameResource(const FrameResource& rhs) = delete;
 		FrameResource& operator=(const FrameResource& rhs) = delete;
 		~FrameResource();
@@ -89,18 +90,12 @@ namespace Speck
 	   // std::unique_ptr<UploadBuffer<FrameConstants>> FrameCB = nullptr;
 		std::unique_ptr<UploadBuffer<PassConstants>> PassCB = nullptr;
 		std::unique_ptr<UploadBuffer<MaterialBufferData>> MaterialBuffer = nullptr;
-
-		// NOTE: In this demo, we instance only one render-item, so we only have one structured buffer to 
-		// store instancing data.  To make this more general (i.e., to support instancing multiple render-items), 
-		// you would need to have a structured buffer for each render-item, and allocate each buffer with enough
-		// room for the maximum number of instances you would ever draw.  
-		// This sounds like a lot, but it is actually no more than the amount of per-object constant data we 
-		// would need if we were not using instancing.  For example, if we were drawing 1000 objects without instancing,
-		// we would create a constant buffer with enough room for a 1000 objects.  With instancing, we would just
-		// create a structured buffer large enough to store the instance data for 1000 instances.  
-		std::unique_ptr<UploadBuffer<SpeckInstanceData>> InstanceBuffer = nullptr;
-
 		std::unique_ptr<UploadBuffer<ObjectConstants>> ObjectCB = nullptr;
+
+		// Array of abstract buffers for general purpose.
+		std::vector<std::unique_ptr<UploadBufferBase>> UploadBuffers;
+		// Array of abstract buffers for general purpose.
+		std::vector<ResourcePair> Buffers;
 
 		// Fence value to mark commands up to this fence point.  This lets us
 		// check if these frame resources are still in use by the GPU.

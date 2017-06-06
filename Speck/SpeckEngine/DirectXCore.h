@@ -52,7 +52,7 @@ namespace Speck
 		D3D_DRIVER_TYPE GetD3dDriverType() const { return md3dDriverType; }
 		DXGI_FORMAT	GetBackBufferFormat() const { return mBackBufferFormat; }
 		DXGI_FORMAT	GetDepthStencilFormat() const { return mDepthStencilFormat; }
-		DirectX::XMVECTORF32 const &GetClearRTColor() const { return DirectX::Colors::Black; }
+		DirectX::XMVECTORF32 const &GetClearRTColor() const { return DirectX::Colors::CornflowerBlue; }
 		void GetClearRTColor(void *destPt) const { memcpy(destPt, GetClearRTColor(), sizeof(GetClearRTColor())); }
 
 		int GetClientHeight() const { return mClientHeight; }
@@ -93,6 +93,21 @@ namespace Speck
 		DXGI_FORMAT mDepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 		int mClientWidth = 800;
 		int mClientHeight = 600;
+
+	};
+
+	// RAII structure that enables grouping DirectX API calls in Graphics Debugger.
+	struct GraphicsDebuggerAnnotator
+	{
+#if defined(_DEBUG) || defined(DEBUG)
+		GraphicsDebuggerAnnotator(DirectXCore &dxCore, const std::string &groupLabel);
+		~GraphicsDebuggerAnnotator();
+
+	private:
+		DirectXCore &mDXCore;
+#else
+		GraphicsDebuggerAnnotator(DirectXCore &dxCore, const std::string &groupLabel) {/*do nothing*/}
+#endif
 	};
 }
 

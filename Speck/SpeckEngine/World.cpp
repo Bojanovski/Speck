@@ -17,6 +17,10 @@ void World::Update(App* app)
 {
 }
 
+void World::PreDrawUpdate(App * app)
+{
+}
+
 void World::Draw(App* app, UINT stage)
 {
 }

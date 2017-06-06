@@ -32,8 +32,12 @@ namespace Speck
 	protected:
 		virtual void CreateRtvAndDsvDescriptorHeaps();
 		virtual void OnResize();
-		virtual void Update(const GameTimer& gt) = 0;
-		virtual void Draw(const GameTimer& gt) = 0;
+		// Update the system based values
+		virtual void Update(const Timer& gt) = 0;
+		// Update that is dependant on the command list.
+		virtual void PreDrawUpdate(const Timer& gt) = 0;
+		// Opens and closes the command list for current frame resource.
+		virtual void Draw(const Timer& gt) = 0;
 
 	protected:
 		bool InitMainWindow();

@@ -29,6 +29,11 @@
 // Special file that holds defines that can be used both by shaders and c++ code.
 #include "cpuGpuDefines.txt"
 
+// Build enviroment
+#ifndef ENGINE_LIBRARY_NAME // Should be defined in: Project > Properties > C/C++ > Preprocessor > Preprocessor Definitions
+#define ENGINE_LIBRARY_NAME L""
+#endif
+
 // Pointer handling
 #define PDEL(pt) if (pt) {delete pt; pt = 0;}			// Safe delete pointer.
 #define PDELARRAY(pt) if (pt) {delete[] pt; pt = 0;}	// Safe delete pointer array.

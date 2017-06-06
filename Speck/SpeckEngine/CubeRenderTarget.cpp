@@ -6,6 +6,7 @@
 #include "SpeckWorld.h"
 #include "UploadBuffer.h"
 #include "RandomGenerator.h"
+#include "Resources.h"
 
 using Microsoft::WRL::ComPtr;
 using namespace std;
@@ -190,8 +191,8 @@ void CubeRenderTarget::UpdateIrradianceMap()
 
 	// How many groups do we need to dispatch to cover a row of pixels, where each
 	// group covers 256 pixels (the 256 is defined in the ComputeShader).
-	UINT numGroupsX = (UINT)ceilf(mIrrWidth / (float)N_THREADS);
-	UINT numGroupsZ = SAMPLER_RAYS_TOTAL_COUNT / SAMPLER_RAYS_GROUP_COUNT;
+	UINT numGroupsX = (UINT)ceilf(mIrrWidth / (float)CUBE_MAP_N_THREADS);
+	UINT numGroupsZ = CUBE_MAP_SAMPLER_RAYS_TOTAL_COUNT / CUBE_MAP_SAMPLER_RAYS_GROUP_COUNT;
 	cmdList->Dispatch(numGroupsX, mIrrHeight, numGroupsZ);
 
 	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mCubeMapIrradianceBuffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_GENERIC_READ));
@@ -229,7 +230,7 @@ void CubeRenderTarget::BuildDescriptors()
 	dsc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	dsc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 	dsc.Buffer.FirstElement = 0;
-	dsc.Buffer.NumElements = (UINT)SAMPLER_RAYS_TOTAL_COUNT;
+	dsc.Buffer.NumElements = (UINT)CUBE_MAP_SAMPLER_RAYS_TOTAL_COUNT;
 	dsc.Buffer.StructureByteStride = sizeof(XMFLOAT4);
 	dsc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 	device->CreateShaderResourceView(mSamplerRaysBuffer.Get(), &dsc, h_CBV_SRV_UAV_Descriptor);
@@ -439,7 +440,20 @@ void CubeRenderTarget::BuildStaticMembers(ID3D12Device *device, ID3D12GraphicsCo
 		IID_PPV_ARGS(mIrrMapCSRootSignature.GetAddressOf())));
 
 	// Load the CS shader
-	mIrrMapCS = LoadBinary(L"Data\\Shaders\\irrMapCS.cso");
+	HMODULE hMod = LoadLibraryEx(ENGINE_LIBRARY_NAME, NULL, LOAD_LIBRARY_AS_DATAFILE);
+	if (NULL != hMod)
+	{
+		HRSRC hRes = FindResource(hMod, MAKEINTRESOURCE(ID_CSO), MAKEINTRESOURCE(RT_IRR_MAP_CS));
+		if (NULL != hRes)
+		{
+			HGLOBAL hgbl = LoadResource(hMod, hRes);
+			void *pData = LockResource(hgbl);
+			UINT32 sizeInBytes = SizeofResource(hMod, hRes);
+			ThrowIfFailed(D3DCreateBlob(sizeInBytes, mIrrMapCS.GetAddressOf()));
+			memcpy((char*)mIrrMapCS->GetBufferPointer(), pData, sizeInBytes);
+		}
+		FreeLibrary(hMod);
+	}
 
 	// PSO for CS
 	D3D12_COMPUTE_PIPELINE_STATE_DESC horzBlurPSO = {};
@@ -453,9 +467,9 @@ void CubeRenderTarget::BuildStaticMembers(ID3D12Device *device, ID3D12GraphicsCo
 
 	// Compute sampler rays and create buffer for it.	
 	vector<XMFLOAT4> data;
-	data.resize(SAMPLER_RAYS_TOTAL_COUNT);
+	data.resize(CUBE_MAP_SAMPLER_RAYS_TOTAL_COUNT);
 	RandomGenerator rndGen(123);
-	for (int i = 0; i < SAMPLER_RAYS_TOTAL_COUNT; ++i)
+	for (int i = 0; i < CUBE_MAP_SAMPLER_RAYS_TOTAL_COUNT; ++i)
 	{
 		// based on: http://www.codinglabs.net/article_physically_based_rendering_cook_torrance.aspx
 		float alpha = 1.0f;

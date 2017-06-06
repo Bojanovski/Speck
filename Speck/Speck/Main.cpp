@@ -20,7 +20,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 		unique_ptr<EngineCore> ec;
 		unique_ptr<World> w;
 		unique_ptr<App> app;
-		CreateSpeckApp(hInstance, 20, 1000, 100, &ec, &w, &app);
+		CreateSpeckApp(hInstance, 100000, 64, 100, &ec, &w, &app);
 		if (!app->Initialize())
 			return 0;
 

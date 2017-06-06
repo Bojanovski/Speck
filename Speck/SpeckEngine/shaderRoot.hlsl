@@ -4,11 +4,13 @@
 
 #include "cpuGpuDefines.txt"
 #include "LightingUtil.hlsl"
+#include "sharedStructures.hlsl"
 
 // Object data that varies per object.
 cbuffer cbObj : register(b0)
 {
 	float4x4 gWorld;
+	float4x4 gInvTransposeWorld;
 	float4x4 gTexTransform;
 	uint gMaterialIndex;
 	uint gObjPad0;
@@ -42,20 +44,6 @@ cbuffer cbPass : register(b1)
 	Light gLights[MaxLights];
 };
 
-struct InstanceData
-{
-	float3		Position;
-	uint		MaterialIndex;
-};
-
-struct MaterialData
-{
-	float4   DiffuseAlbedo;
-	float3   FresnelR0;
-	float    Roughness;
-	float4x4 MatTransform;
-};
-
 // An array of textures, which is only supported in shader model 5.1+.  Unlike Texture2DArray, the textures
 // in this array can be different sizes and formats, making it more flexible than texture arrays.
 Texture2D gTextureMaps[MATERIAL_TEXTURES_COUNT] : register(t0);
@@ -76,10 +64,10 @@ SamplerState gsamAnisotropicClamp : register(s5);
 //---------------------------------------------------------------------------------------
 // Build tangent-bitangent-normal matrix.
 //---------------------------------------------------------------------------------------
-float3x3 GetTBN(float3 unitNormalW, float3 tangentW)
+float3x3 GetTBN(float3 normalW, float3 tangentW)
 {
 	// Build orthonormal basis.
-	float3 N = unitNormalW;
+	float3 N = normalize(normalW);
 	float3 T = normalize(tangentW - dot(tangentW, N)*N);
 	float3 B = cross(N, T);
 
@@ -114,10 +102,10 @@ float4 NormalInWorldToTextel(float3 normalW)
 //---------------------------------------------------------------------------------------
 // Offset the texture coordinates due to parallax occlusion.
 //---------------------------------------------------------------------------------------
-float2 GetParallaxOcclusionTextureCoordinateOffset(float2 texCoord, float3 texPosW, float3 texNormalW, float heightMapScale, float3x3 TBN)
+float2 GetParallaxOcclusionTextureCoordinateOffset(float2 texCoord, float3 texPosW, float3 texNormalW, float heightMapScale, float4x4 texTransform, float3x3 TBN)
 {
 	// Calculate new parallaxed texture coordinates.
-	float3 E = texPosW - gEyePosW;
+	float3 E = normalize(texPosW - gEyePosW);
 	float3x3 worldToTangentSpace = transpose(TBN);
 	float3 ET = mul(E, worldToTangentSpace);
 	float3 NT = mul(texNormalW, worldToTangentSpace);
@@ -126,8 +114,11 @@ float2 GetParallaxOcclusionTextureCoordinateOffset(float2 texCoord, float3 texPo
 	fParallaxLimit *= heightMapScale;
 	float2 vOffsetDir = normalize(ET.xy);
 	float2 vMaxOffset = vOffsetDir * fParallaxLimit;
+	vMaxOffset = mul(float4(vMaxOffset, 0.0f, 1.0f), texTransform).xy; // transform the ray
 	int nNumSamples = (int)lerp(PARALLAX_OCCLUSION_MAX_STEPS, PARALLAX_OCCLUSION_MIN_STEPS, dot(ET, NT));
+	//nNumSamples = PARALLAX_OCCLUSION_MAX_STEPS;
 	float fStepSize = 1.0 / (float)nNumSamples;
+	
 	float2 dx = ddx(texCoord);
 	float2 dy = ddy(texCoord);
 

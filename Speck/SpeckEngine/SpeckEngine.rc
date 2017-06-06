@@ -1,0 +1,26 @@
+
+#include "Resources.h"
+
+// Raw data
+ID_BIN  RT_MILION_PRIMES  "milionPrimes.bin"
+
+// Shaders
+ID_CSO RT_DEFFERED_ASSEMBLER_VS		"ShadersBin\defferedAssemblerVS.cso"
+ID_CSO RT_DEFFERED_ASSEMBLER_PS		"ShadersBin\defferedAssemblerPS.cso"
+ID_CSO RT_IRR_MAP_CS				"ShadersBin\irrMapCS.cso"
+ID_CSO RT_SPECKS_CS_PHASE_0			"ShadersBin\specksCS_phase0.cso"
+ID_CSO RT_SPECKS_CS_PHASE_1			"ShadersBin\specksCS_phase1.cso"
+ID_CSO RT_SPECKS_CS_PHASE_2			"ShadersBin\specksCS_phase2.cso"
+ID_CSO RT_SPECKS_CS_PHASE_3_0		"ShadersBin\specksCS_phase3_0.cso"
+ID_CSO RT_SPECKS_CS_PHASE_3_1		"ShadersBin\specksCS_phase3_1.cso"
+ID_CSO RT_SPECKS_CS_PHASE_4			"ShadersBin\specksCS_phase4.cso"
+ID_CSO RT_SPECKS_CS_PHASE_5_0		"ShadersBin\specksCS_phase5_0.cso"
+ID_CSO RT_SPECKS_CS_PHASE_5_1		"ShadersBin\specksCS_phase5_1.cso"
+ID_CSO RT_SPECKS_CS_PHASE_5_2		"ShadersBin\specksCS_phase5_2.cso"
+ID_CSO RT_SPECKS_CS_PHASE_5_3		"ShadersBin\specksCS_phase5_3.cso"
+ID_CSO RT_SPECKS_CS_PHASE_6			"ShadersBin\specksCS_phase6.cso"
+ID_CSO RT_SPECKS_CS_PHASE_FINAL		"ShadersBin\specksCS_phaseFinal.cso"
+ID_CSO RT_SPECK_VS					"ShadersBin\speckVS.cso"
+ID_CSO RT_SPECK_PS					"ShadersBin\speckPS.cso"
+ID_CSO RT_STANDARD_VS				"ShadersBin\standardVS.cso"
+ID_CSO RT_STANDARD_PS				"ShadersBin\standardPS.cso"

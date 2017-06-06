@@ -1,1 +1,13 @@
 empty
+
+
+- pisati o triku sa time stepom
+
+
+
+
+
+
+implementacija:
+
+- ograniciti brzinu??????

@@ -2,18 +2,53 @@
 #ifndef CPU_GPU_DEFINES_TXT
 #define CPU_GPU_DEFINES_TXT
 
-#define N_THREADS 256
-#define SAMPLER_RAYS_GROUP_COUNT 1000
-#define SAMPLER_RAYS_TOTAL_COUNT (10 * SAMPLER_RAYS_GROUP_COUNT)
+// Hardware
+#define NVIDIA_WARP 32
+#define AMD_WAVEFRONT 64
+
+// Cube mapping
+#define CUBE_MAP_N_THREADS 256
+#define CUBE_MAP_SAMPLER_RAYS_GROUP_COUNT 1000
+#define CUBE_MAP_SAMPLER_RAYS_TOTAL_COUNT (10 * CUBE_MAP_SAMPLER_RAYS_GROUP_COUNT)
 
 // Deferred shading
-#define DEFERRED_RENDER_TARGETS_COUNT 3
+#define DEFERRED_RENDER_TARGETS_COUNT 4
 
 // Item rendering
 #define MATERIAL_TEXTURES_COUNT 6
 
 // Parallax occlusion
-#define PARALLAX_OCCLUSION_MAX_STEPS 40
+#define PARALLAX_OCCLUSION_MAX_STEPS 20
 #define PARALLAX_OCCLUSION_MIN_STEPS 2
+
+// Specks:
+#define MAX_SPECKS 100000 // maximal number of specks in the system
+#define SPECKS_CS_N_THREADS 256 // number of specks to proces concurrently in one thread group batch
+#define CELLS_CS_N_THREADS 256 // number of cells to proces concurrently in one thread group batch
+#define MAX_SPECKS_PER_CELL 16
+#define SPECK_CODE_UPPER_WORD_MASK		0xffff0000
+#define SPECK_CODE_LOWER_WORD_MASK		0x0000ffff
+#define SPECK_CODE_NORMAL				(0<<16)
+#define SPECK_CODE_FLUID				(1<<16)
+#define SPECK_CODE_RIGID_BODY			(2<<16)
+#define SPECK_SPECIAL_PARAM_N			3
+
+// Forces:
+#define MAX_EXTERNAL_FORCES 10
+#define FORCE_TYPE_ACCELERATION 0
+
+// Constraints:
+#define MAX_STATIC_COLLIDERS 100
+// Maximal number of specks if all neighbouring grid cell have been populated to the max 
+// including the cell containing the speck. This cell, however, must check only MAX_SPECKS_PER_CELL - 1,
+// because a speck cannot collide with itself.
+#define NUM_SPECK_CONTACT_CONSTRAINTS_PER_SPECK (MAX_SPECKS_PER_CELL*27 - 1) 
+#define NUM_STATIC_COLLIDERS_CONTACT_CONSTRAINTS_PER_SPECK 5
+#define NUM_RIGID_BODY_CONSTRAINTS_PER_SPECK 3
+
+// Rigid bodies:
+#define MAX_RIGID_BODIES 100
+#define MAX_SPECK_RIGID_BODY_LINKS MAX_SPECKS
+#define SPECK_RIGID_BODY_LINKS_CS_N_THREADS 64 // number of speck rigid body links to proces concurrently in one thread group batch
 
 #endif

@@ -12,18 +12,18 @@ namespace Speck
 	class RandomGenerator
 	{
 	public:
-		RandomGenerator(int seed)
+		RandomGenerator(int seed = 0)
 			: mState(seed)
 		{
 
 		}
 
-		bool BernoulliTest(float p)
+		bool BernoulliTest(float p = 0.5f)
 		{
 			return ((mRndReal(mState) / mRndReal.max()) < p);
 		}
 
-		int GetInt(int min, int max)
+		int GetInt(int min = 0, int max = INT_MAX)
 		{
 			int diff = max - min + 1;
 			return (mRndInteger(mState) % diff) + min;

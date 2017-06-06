@@ -134,7 +134,7 @@ int CreateMaterialCommand::Execute(void *ptIn, void *ptOut) const
 	if (sApp->mMaterials.find(materialName) != sApp->mMaterials.end())
 	{
 		// Material with this key already exists, overwriting.
-		material->MatCBIndex = sApp->mMaterials[materialName]->MatCBIndex;
+		texMatPt->MatCBIndex = sApp->mMaterials[materialName]->MatCBIndex;
 	}
 	else if (sApp->mLatestMatCBIndex >= sApp->mMaxNumberOfMaterials)
 	{
@@ -143,7 +143,7 @@ int CreateMaterialCommand::Execute(void *ptIn, void *ptOut) const
 	}
 	else // everything is ok, add a brand new material
 	{
-		material->MatCBIndex = sApp->mLatestMatCBIndex++;
+		texMatPt->MatCBIndex = sApp->mLatestMatCBIndex++;
 	}
 	sApp->mMaterials[materialName] = move(material);
 	return 0;

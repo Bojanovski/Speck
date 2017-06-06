@@ -72,7 +72,7 @@ namespace Speck
 		return blob;
 	}
 
-	inline Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const void* initData, UINT64 byteSize, Microsoft::WRL::ComPtr<ID3D12Resource>& uploadBuffer)
+	inline Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const void* initData, UINT64 byteSize, const D3D12_RESOURCE_DESC &rd, Microsoft::WRL::ComPtr<ID3D12Resource>& uploadBuffer)
 	{
 		Microsoft::WRL::ComPtr<ID3D12Resource> defaultBuffer;
 
@@ -80,7 +80,7 @@ namespace Speck
 		ThrowIfFailed(device->CreateCommittedResource(
 			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer(byteSize),
+			&rd,
 			D3D12_RESOURCE_STATE_COMMON,
 			nullptr,
 			IID_PPV_ARGS(defaultBuffer.GetAddressOf())));
@@ -117,6 +117,41 @@ namespace Speck
 
 		return defaultBuffer;
 	}
+
+	inline Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const void* initData, UINT64 byteSize, Microsoft::WRL::ComPtr<ID3D12Resource>& uploadBuffer)
+	{
+		D3D12_RESOURCE_DESC rd = CD3DX12_RESOURCE_DESC::Buffer(byteSize);
+		return CreateDefaultBuffer(device, cmdList, initData, byteSize, rd, uploadBuffer);
+	}
+
+	struct ComputeShaderThreadGroups
+	{
+		UINT mX = UINT_MAX;
+		UINT mY = UINT_MAX;
+		UINT mZ = UINT_MAX;
+		// Some phases will repeat multiple times before the next phase is started.
+		UINT mRepeat = 1;
+
+		UINT GetTotalCount() { return mX*mY*mZ; }
+	};
+
+	// Swap buffer is basically two buffers that can be used interchangeably.
+	struct SwapBuffer
+	{
+		ID3D12Resource *GetReadResource() { return mResourceBuffer[mUseIndex].Get(); }
+		ID3D12Resource *GetWriteResource() { return mResourceBuffer[(mUseIndex + 1) % 2].Get(); }
+		void Swap() { mUseIndex = (mUseIndex + 1) % 2; }
+
+		Microsoft::WRL::ComPtr<ID3D12Resource> mResourceBuffer[2] = { nullptr, nullptr };
+		// Residue from creating mResourceBuffer.
+		Microsoft::WRL::ComPtr<ID3D12Resource> mUploadBuffer[2] = { nullptr, nullptr };
+	private:
+		// Since there will be ping phong between two buffers, this variable contains the index of the currently used buffer.
+		UCHAR mUseIndex = 0;
+	};
+
+	// Pair of two resources. One being for the actual resource and another for the residue.
+	typedef std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, Microsoft::WRL::ComPtr<ID3D12Resource>> ResourcePair;
 }
 
 #endif

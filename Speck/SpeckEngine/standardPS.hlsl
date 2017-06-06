@@ -15,18 +15,13 @@ struct PixelOut
 {
 	float4 Color0		: SV_Target0; // color
 	float4 Color1		: SV_Target1; // normal
-	float4 Color2		: SV_Target2; // depth
+	float Color2		: SV_Target2; // depth
+	float4 Color3		: SV_Target3; // PBR data
 };
 
 PixelOut main(VertexOut pin)
 {
 	PixelOut pout = (PixelOut)0.0f;
-	float fHeightMapScale = 0.05f;
-	float3x3 TBN = GetTBN(pin.NormalW, pin.TangentW);
-
-	// Calculate new parallaxed texture coordinates.
-	float2 vFinalCoords = GetParallaxOcclusionTextureCoordinateOffset(pin.TexC, pin.PosW, pin.NormalW, fHeightMapScale, TBN);
-
 	// Fetch the material data.
 	MaterialData matData = gMaterialData[gMaterialIndex];
 	float4 diffuseAlbedo = matData.DiffuseAlbedo;
@@ -34,15 +29,31 @@ PixelOut main(VertexOut pin)
 	float  roughness = matData.Roughness;
 	uint diffuseMapIndex = 0;
 	uint normalMapIndex = 1;
+	uint heightMapIndex = 2;
+	uint metalnessMapIndex = 3;
+	uint roughnessMapIndex = 4;
+	uint aoMapIndex = 5;
 
+	float3x3 TBN = GetTBN(pin.NormalW, pin.TangentW);
 	// Interpolating normal can unnormalize it, so renormalize it.
 	pin.NormalW = normalize(pin.NormalW);
+
+	// Calculate new parallaxed texture coordinates.
+	float fHeightMapScale = 0.0125f;
+	float4x4 texTransform = mul(gTexTransform, matData.MatTransform);
+	fHeightMapScale *= texTransform._m20*texTransform._m20 + texTransform._m21*texTransform._m21 + texTransform._m22*texTransform._m22;
+	float2 vFinalCoords = GetParallaxOcclusionTextureCoordinateOffset(pin.TexC, pin.PosW, pin.NormalW, fHeightMapScale, texTransform, TBN);
 
 	float4 normalMapSample = gTextureMaps[normalMapIndex].Sample(gsamAnisotropicWrap, vFinalCoords);
 	float3 bumpedNormalW = NormalSampleToWorldSpace(normalMapSample.rgb, TBN);
 
 	// Dynamically look up the texture in the array.
 	diffuseAlbedo *= gTextureMaps[diffuseMapIndex].Sample(gsamAnisotropicWrap, vFinalCoords);
+
+	// Fetch the PBR data
+	float texMetalness = gTextureMaps[metalnessMapIndex].Sample(gsamAnisotropicWrap, vFinalCoords).r;
+	float texRoughness = gTextureMaps[roughnessMapIndex].Sample(gsamAnisotropicWrap, vFinalCoords).r;
+	float texAO = gTextureMaps[aoMapIndex].Sample(gsamAnisotropicWrap, vFinalCoords).r;
 
 	//// Vector from point being lit to eye. 
 	//float3 toEyeW = normalize(gEyePosW - pin.PosW);
@@ -68,6 +79,7 @@ PixelOut main(VertexOut pin)
 
 	pout.Color0 = diffuseAlbedo;
 	pout.Color1 = NormalInWorldToTextel(bumpedNormalW);
-	pout.Color2 = float4(0.0f, 1.0f, 0.0f, 1.0f);
+	pout.Color2 = pin.PosH.z;
+	pout.Color3 = float4(texMetalness, texRoughness, texAO, 1.0f);
 	return pout;
 }

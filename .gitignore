@@ -257,4 +257,4 @@ paket-files/
 **/Build/*.exp
 **/Build/*.lib
 
-ShadersBin/
+**/ShadersBin/

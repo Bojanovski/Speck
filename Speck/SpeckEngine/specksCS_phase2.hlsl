@@ -15,7 +15,6 @@ void main(int3 threadGroupID : SV_GroupID, int3 dispatchThreadID : SV_DispatchTh
 		switch (gExternalForces[i].type)
 		{
 			case FORCE_TYPE_ACCELERATION: // apply vector as acceleration (ignore the mass of the particle)
-				//sd.vel = sd.vel + gExternalForces[i].vec * gDeltaTime;
 				sd.vel = sd.vel + gExternalForces[i].vec * gDeltaTime;
 				sd.vel *= 0.999f;
 				break;

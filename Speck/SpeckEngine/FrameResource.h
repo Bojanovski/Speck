@@ -15,12 +15,15 @@ namespace Speck
 		UINT MaterialIndex = 0;
 	};
 
-	struct ObjectConstants
+	struct RenderItemConstants
 	{
-		DirectX::XMFLOAT4X4 World = MathHelper::Identity4x4();
-		DirectX::XMFLOAT4X4 InvTransposeWorld = MathHelper::Identity4x4();
+		DirectX::XMFLOAT4X4 Transform = MathHelper::Identity4x4();
+		DirectX::XMFLOAT4X4 InvTransposeTransform = MathHelper::Identity4x4();
 		DirectX::XMFLOAT4X4 TexTransform = MathHelper::Identity4x4();
-		UINT     MaterialIndex = 0;
+
+		UINT RenderItemType;
+		UINT MaterialIndex;
+		UINT Param[RENDER_ITEM_SPECIAL_PARAM_N];
 	};
 
 	struct PassConstants
@@ -76,7 +79,7 @@ namespace Speck
 	{
 	public:
 
-		FrameResource(ID3D12Device* device, UINT passCount, UINT maxSingleCount, UINT materialCount);
+		FrameResource(ID3D12Device* device, UINT passCount, UINT maxRenderItemsCount, UINT materialCount);
 		FrameResource(const FrameResource& rhs) = delete;
 		FrameResource& operator=(const FrameResource& rhs) = delete;
 		~FrameResource();
@@ -87,10 +90,9 @@ namespace Speck
 
 		// We cannot update a cbuffer until the GPU is done processing the commands
 		// that reference it.  So each frame needs their own cbuffers.
-	   // std::unique_ptr<UploadBuffer<FrameConstants>> FrameCB = nullptr;
 		std::unique_ptr<UploadBuffer<PassConstants>> PassCB = nullptr;
 		std::unique_ptr<UploadBuffer<MaterialBufferData>> MaterialBuffer = nullptr;
-		std::unique_ptr<UploadBuffer<ObjectConstants>> ObjectCB = nullptr;
+		std::unique_ptr<UploadBuffer<RenderItemConstants>> RenderItemConstantsBuffer = nullptr;
 
 		// Array of abstract buffers for general purpose.
 		std::vector<std::unique_ptr<UploadBufferBase>> UploadBuffers;

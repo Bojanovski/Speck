@@ -13,9 +13,30 @@ namespace Speck
 	struct Texture;
 	struct FrameResource;
 
+	namespace AppCommands
+	{
+		struct LoadResourceCommand;
+		struct CreateMaterialCommand;
+		struct CreateGeometryCommand;
+	}
+
+	namespace WorldCommands
+	{
+		struct AddRenderItemCommand;
+		struct AddSpecksCommand;
+		struct CreatePSOGroupCommand;
+	}
+
 	class SpeckApp : public D3DApp
 	{
 		friend class SpeckWorld;
+
+		friend struct AppCommands::LoadResourceCommand;
+		friend struct AppCommands::CreateMaterialCommand;
+		friend struct AppCommands::CreateGeometryCommand;
+		friend struct WorldCommands::AddRenderItemCommand;
+		friend struct WorldCommands::AddSpecksCommand;
+		friend struct WorldCommands::CreatePSOGroupCommand;
 
 	public:
 		SpeckApp(HINSTANCE hInstance, UINT maxNumberOfMaterials, EngineCore &ec, World &w);
@@ -28,6 +49,25 @@ namespace Speck
 		FrameResource *GetCurrentFrameResource() { return mCurrFrameResource; }
 		ID3D12Resource *GetDefaultTexture(UINT index) const { return mDefaultTextures[index]; }
 		DXGI_FORMAT GetDeferredRTFormat(int index) const { return mDeferredRTFormats[index]; }
+
+		// All the possible root parameters for this app.
+		// Perfomance TIP: Order from most frequent to least frequent.
+		enum struct MainPassRootParameter
+		{
+			StaticConstantBuffer = 0,
+			InstancesConstantBuffer,
+			TexturesDescriptorTable,
+			MaterialsRootDescriptor,
+			RigidBodyRootDescriptor,
+			PassRootDescriptor,
+			Count // Number of elements in this enum
+		};
+		enum struct PostProcessRootParameter
+		{
+			SettingsRootConstant = 0,
+			TexturesDescriptorTable,
+			Count // Number of elements in this enum
+		};
 
 	private:
 		virtual void OnResize()override;
@@ -49,7 +89,7 @@ namespace Speck
 		void BuildFrameResources();
 		void BuildDeferredRenderTargetsAndBuffers();
 
-	public:
+	private:
 		std::unordered_map<std::string, std::unique_ptr<MeshGeometry>>		mGeometries;
 		std::unordered_map<std::string, std::unique_ptr<Material>>			mMaterials;
 		UINT mLatestMatCBIndex = 0;
@@ -58,7 +98,6 @@ namespace Speck
 		ID3D12Resource *mDefaultTextures[MATERIAL_TEXTURES_COUNT]; // for easy access based on index
 		std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3DBlob>>	mShaders;
 
-	private:
 		std::vector<std::unique_ptr<FrameResource>> mFrameResources;
 		FrameResource* mCurrFrameResource = nullptr;
 		int mCurrFrameResourceIndex = 0;

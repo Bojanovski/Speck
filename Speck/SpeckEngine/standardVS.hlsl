@@ -26,13 +26,43 @@ VertexOut main(VertexIn vin)
 	// Fetch the material data.
 	MaterialData matData = gMaterialData[gMaterialIndex];
 
+	// World matrix is type dependant
+	float4x4 world;
+	float3x3 invTransposeWorld;
+	switch (gRenderItemType)
+	{
+		case RENDER_ITEM_TYPE_STATIC:
+		{
+			world = gTransform;
+			invTransposeWorld = (float3x3)gInvTransposeTransform;
+		}
+		break;
+
+		case RENDER_ITEM_TYPE_SPECK_RIGID_BODY:
+		{
+			uint speckRigidBodyIndex = gParam[0];
+			world = mul(gTransform, gRigidBodies[speckRigidBodyIndex].world);
+			// Since speck rigid body transform has no scaling in it, simple cast is enough to get the inverse transpose transform.
+			float3x3 speckRigidBodyInvTransposeTransform = (float3x3)gRigidBodies[speckRigidBodyIndex].world;
+			invTransposeWorld = mul(gInvTransposeTransform, speckRigidBodyInvTransposeTransform);
+		}
+		break;
+
+		default:
+		{
+			world = Identity4x4();
+			invTransposeWorld = Identity3x3();
+		}
+		break;
+	}
+
 	// Transform to world space.
-	float4 posW = mul(float4(vin.PosL, 1.0f), gWorld);
+	float4 posW = mul(float4(vin.PosL, 1.0f), world);
 	vout.PosW = posW.xyz;
 
 	// Use inverse transpose world matrix for normal and tangent.
-	vout.NormalW = mul(vin.NormalL, (float3x3)gInvTransposeWorld);
-	vout.TangentW = mul(vin.TangentU, (float3x3)gInvTransposeWorld);
+	vout.NormalW = mul(vin.NormalL, invTransposeWorld);
+	vout.TangentW = mul(vin.TangentU, invTransposeWorld);
 
 	// Transform to homogeneous clip space.
 	vout.PosH = mul(posW, gViewProj);

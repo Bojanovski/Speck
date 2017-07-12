@@ -14,15 +14,42 @@ namespace Speck
 	//-------------------------------------------------------------------------------------
 
 	class Timer;
-	struct ProcessAndSystemData;
 	class Camera;
 	class CameraController;
 	class InputHandler;
 	class DirectXCore;
 
+	struct ProcessAndSystemData;
+	namespace AppCommands
+	{
+		struct LimitFrameTimeCommand;
+		struct UpdateCameraCommand;
+		struct LoadResourceCommand;
+		struct CreateMaterialCommand;
+		struct CreateGeometryCommand;
+	}
+	namespace WorldCommands
+	{
+		struct AddEnviromentMapCommand;
+		struct CreatePSOGroupCommand;
+	}
+
 	class EngineCore
 	{
 		friend class D3DApp;
+		friend class SpeckApp;
+		friend class SpecksHandler;
+		friend class SpeckWorld;
+		friend class CubeRenderTarget;
+		friend struct RenderItem;
+
+		friend struct AppCommands::LimitFrameTimeCommand;
+		friend struct AppCommands::UpdateCameraCommand;
+		friend struct AppCommands::LoadResourceCommand;
+		friend struct AppCommands::CreateMaterialCommand;
+		friend struct AppCommands::CreateGeometryCommand;
+		friend struct WorldCommands::AddEnviromentMapCommand;
+		friend struct WorldCommands::CreatePSOGroupCommand;
 
 	public:
 		DLL_EXPORT EngineCore();
@@ -35,26 +62,31 @@ namespace Speck
 		// GETTERS
 		//
 		InputHandler const *GetInputHandler() const { return mInputHandler.get(); }
-		Camera &GetCamera() { return *mCamera; }
-		CameraController &GetCameraController() { return *mCameraController; }
+		Camera const &GetCamera() const { return *mCamera; }
 		ProcessAndSystemData const *GetProcessAndSystemData() const { return mProcessAndSystemData.get(); }
 		Timer const *GetTimer() const { return mTimer.get(); }
 		DLL_EXPORT int GetClientHeight() const;
 		DLL_EXPORT int GetClientWidth() const;
 		DLL_EXPORT float GetAspectRatio() const;
+		DirectXCore const &GetDirectXCore() const { return *mDirectXCore.get(); };
+
+	private:
+		//
+		// GETTERS
+		//
+		Camera &GetCamera() { return *mCamera; }
+		Timer *GetTimer() { return mTimer.get(); }
 		DirectXCore &GetDirectXCore() { return *mDirectXCore.get(); };
 
 		//
 		// SETTERS
 		//
 		void SetCamera(Camera *newCamera) { mCamera = newCamera; }
-		void SetCameraController(CameraController *newCameraController) { mCameraController = newCameraController; }
 		void SetDefaultCamera() { mCamera = mDefaultCamera.get(); }
 
 	private:
 		// Pointer to the currently used camera component and it's controller.
 		Camera *mCamera;
-		CameraController *mCameraController = nullptr; // can be null
 		// Default camera
 		std::unique_ptr<Camera> mDefaultCamera;
 		// Information about process and system.

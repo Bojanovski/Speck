@@ -16,79 +16,21 @@ using namespace std;
 using namespace DirectX;
 using namespace Speck;
 
-SpeckWorld::SpeckWorld(UINT maxInstancedObject, UINT maxSingleObjects)
+SpeckWorld::SpeckWorld(UINT maxRenderItemsCount)
 	: World(),
-	mMaxSingleObjects(maxSingleObjects)
+	mMaxRenderItemsCount(maxRenderItemsCount)
 {
+	// Create the PSO groups.
 	mPSOGroups["instanced"] = make_unique<PSOGroup>();
-	mPSOGroups["single"] = make_unique<PSOGroup>();
+	mPSOGroups["static"]	= make_unique<PSOGroup>();
+	//mPSOGroups["skeletalBody"]	= make_unique<PSOGroup>();
 
-
-
-	// {-0.2, -0.19999981, -0.2}
-
-
-
-	//"{+0.32000002, +0, +0}", "{+0, +0.3199994, +0}", "{+0, +0, +0.32000002}"
-
-	//XMFLOAT3X3 Af( 
-	//	+0.31493858, -0.035997204, -0.035997409,
-	//	-0.035997495, +0.31493902, -0.035997488,
-	//	-0.035997398, -0.035997204, +0.3149386);
-//	 "{+11.52, +22.799274, +0}", "{+0, +0.50453484, +0}", "{+0, +0, +0.32000002}"
-
-
-	XMFLOAT3X3 Af(
-		11.52f, 22.799274f, 0,
-		0, 0.50453484f, 0,
-		0, 0, 0.32000002f);
-
-	//XMFLOAT3X3 Af;
-	//Af._11 = 0.32000002f;
-	//Af._12 = 0.0f;
-	//Af._13 = 0.0f;
-
-	//Af._21 = 0.0f;
-	//Af._22 = 0.3199994f;
-	//Af._23 = 0.0f;
-
-	//Af._31 = 0.0f;
-	//Af._32 = 0.0f;
-	//Af._33 = 0.32000002f;
-
-	//XMFLOAT3X3 Af;
-	//Af._11 = 1;
-	//Af._12 = 2;
-	//Af._13 = 1;
-
-	//Af._21 = 6;
-	//Af._22 = -1;
-	//Af._23 = 0;
-
-	//Af._31 = -1;
-	//Af._32 = -2;
-	//Af._33 = -1;
-
-	XMMATRIX A = XMLoadFloat3x3(&Af);
-	XMMATRIX ATA = XMMatrixTranspose(A) * A;
-	XMVECTOR eigVal;
-	XMMATRIX eigVec;
-	MathHelper::GetEigendecompositionSymmetric3X3(ATA, 20, &eigVal, &eigVec);
-	XMMATRIX eigVecInv = MathHelper::GetInverse3X3(eigVec);
-	XMMATRIX lambdaSqrt = XMMatrixIdentity();
-	lambdaSqrt.r[0].m128_f32[0] = sqrt(eigVal.m128_f32[0]);
-	lambdaSqrt.r[1].m128_f32[1] = sqrt(eigVal.m128_f32[1]);
-	lambdaSqrt.r[2].m128_f32[2] = sqrt(eigVal.m128_f32[2]);
-
-	XMMATRIX S = eigVec * lambdaSqrt * eigVecInv;
-	XMMATRIX SInv = MathHelper::GetInverse3X3(S);
-	XMMATRIX Q = A * SInv;
-	XMMATRIX ATest = Q * S;
-
-
-	// "{+1.0000001, -0, +0, +0}", "{-0, +1, -0, -9.0884123}", "{+0, -0, +1.0000001, +0}", "{+0, +0, +0, +1}", "{+0, -9.0884123, +0}"
-
-
+	// Initalize the free space stack.
+	mFreeSpacesRenderItemBuffer.resize(mMaxRenderItemsCount);
+	for (UINT i = 0; i < mMaxRenderItemsCount; i++)
+	{
+		mFreeSpacesRenderItemBuffer[i] = mMaxRenderItemsCount - i - 1;
+	}
 }
 
 SpeckWorld::~SpeckWorld()
@@ -97,10 +39,11 @@ SpeckWorld::~SpeckWorld()
 
 void SpeckWorld::Initialize(App * app)
 {
+	World::Initialize(app);
 	SpeckApp *sApp = static_cast<SpeckApp *>(app);
 	
-	// Create the specks handler
-	mSpecksHandler = make_unique<SpecksHandler>(sApp->GetEngineCore(), *this, &sApp->mFrameResources, 0, 2, 4);
+	// Create the specks handler.
+	mSpecksHandler = make_unique<SpecksHandler>(sApp->GetEngineCore(), *this, &sApp->mFrameResources, 2, 4, 1);
 
 	// Build the specks render item.
 	auto rItem = make_unique<SpecksRenderItem>();
@@ -117,10 +60,15 @@ void SpeckWorld::Initialize(App * app)
 	mPSOGroups["instanced"]->mRItems.push_back(move(rItem));
 }
 
-void SpeckWorld::Update(App* app)
+int SpeckWorld::ExecuteCommand(const WorldCommand &command, CommandResult *result)
 {
-	SpeckApp *sApp = static_cast<SpeckApp *>(app);
-	auto currObjectCB = sApp->mCurrFrameResource->ObjectCB.get();
+	return World::ExecuteCommand(command, result);
+}
+
+void SpeckWorld::Update()
+{
+	SpeckApp *sApp = static_cast<SpeckApp *>(mApp);
+	auto currCB = sApp->mCurrFrameResource->RenderItemConstantsBuffer.get();
 	// For each PSO group.
 	for (auto& psoGrp : mPSOGroups)
 	{
@@ -171,9 +119,9 @@ void SpeckWorld::Update(App* app)
 	mSpecksHandler->UpdateCPU(sApp->mCurrFrameResource);
 }
 
-void SpeckWorld::PreDrawUpdate(App * app)
+void SpeckWorld::PreDrawUpdate()
 {
-	SpeckApp *sApp = static_cast<SpeckApp *>(app);
+	SpeckApp *sApp = static_cast<SpeckApp *>(mApp);
 	
 	// Speck handler
 	mSpecksHandler->UpdateGPU();
@@ -189,12 +137,12 @@ void SpeckWorld::PreDrawUpdate(App * app)
 	}
 }
 
-void SpeckWorld::Draw(App * app, UINT stage)
+void SpeckWorld::Draw(UINT stage)
 {
 	switch (stage)
 	{
 		case 0:
-			Draw_Scene(app);
+			Draw_Scene();
 			break;
 		case 1:
 			break;
@@ -203,25 +151,37 @@ void SpeckWorld::Draw(App * app, UINT stage)
 	}
 }
 
-void SpeckWorld::Draw_Scene(App* app)
+void SpeckWorld::Draw_Scene()
 {
-	SpeckApp *sApp = static_cast<SpeckApp *>(app);
+	SpeckApp *sApp = static_cast<SpeckApp *>(mApp);
+	auto &dxCore = sApp->GetEngineCore().GetDirectXCore();
 	XMMATRIX view = sApp->GetEngineCore().GetCamera().GetView();
 	XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(view), view);
-	const BoundingFrustum &mCamFrustum = app->GetEngineCore().GetCamera().GetFrustum();
+	const BoundingFrustum &mCamFrustum = mApp->GetEngineCore().GetCamera().GetFrustum();
 	BoundingFrustum transformedFrustum;
 	mCamFrustum.Transform(transformedFrustum, invView);
+
+	// Bind all the rigid bodies from the specks handler.
+	auto rigidBodyBuffer = mSpecksHandler->GetRigidBodyBufferResource();
+	dxCore.GetCommandList()->SetGraphicsRootShaderResourceView((UINT)SpeckApp::MainPassRootParameter::RigidBodyRootDescriptor, rigidBodyBuffer->GetGPUVirtualAddress());
 
 	// For all PSO groups
 	for (auto &grp : mPSOGroups)
 	{
-		sApp->GetEngineCore().GetDirectXCore().GetCommandList()->SetPipelineState(grp.second->mPSO.Get());
+		dxCore.GetCommandList()->SetPipelineState(grp.second->mPSO.Get());
 
 		// For each render item...
 		for (size_t i = 0; i < grp.second->mRItems.size(); ++i)
 		{
 			auto ri = grp.second->mRItems[i].get();
-			ri->Render(app, sApp->mCurrFrameResource, transformedFrustum);
+			ri->Render(mApp, sApp->mCurrFrameResource, transformedFrustum);
 		}
 	}
+}
+
+UINT SpeckWorld::GetRenderItemFreeSpace()
+{
+	UINT ret = mFreeSpacesRenderItemBuffer.back();
+	mFreeSpacesRenderItemBuffer.pop_back();
+	return ret;
 }

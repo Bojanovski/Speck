@@ -10,20 +10,43 @@
 #include "RenderItem.h"
 #include "SpeckWorld.h"
 #include "MaterialShaderStructure.h"
+#include "Timer.h"
+#include "Camera.h"
 
 using Microsoft::WRL::ComPtr;
 using namespace std;
 using namespace DirectX;
+using namespace Speck;
 using namespace Speck::AppCommands;
 
-int SetWindowTitleCommand::Execute(void *ptIn, void *ptOut) const
+int LimitFrameTimeCommand::Execute(void * ptIn, CommandResult * result) const
+{
+	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
+	auto &ec = sApp->GetEngineCore();
+	const auto timer = ec.GetTimer();
+	timer->SetMinFrameTime(minFrameTime);
+
+	return 0;
+}
+
+int UpdateCameraCommand::Execute(void * ptIn, CommandResult * result) const
+{
+	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
+	auto &ec = sApp->GetEngineCore();
+	ec.GetCamera().Update(deltaTime, ccPt);
+
+	return 0;
+}
+
+
+int SetWindowTitleCommand::Execute(void *ptIn, CommandResult *result) const
 {
 	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
 	sApp->ChangeMainWindowCaption(text);
 	return 0;
 }
 
-int LoadResourceCommand::Execute(void *ptIn, void *ptOut) const
+int LoadResourceCommand::Execute(void *ptIn, CommandResult *result) const
 {
 	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
 	auto &dxCore = sApp->GetEngineCore().GetDirectXCore();
@@ -72,7 +95,7 @@ int LoadResourceCommand::Execute(void *ptIn, void *ptOut) const
 	return retVal;
 }
 
-int CreateMaterialCommand::Execute(void *ptIn, void *ptOut) const
+int CreateMaterialCommand::Execute(void *ptIn, CommandResult *result) const
 {
 	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
 	auto &dxCore = sApp->GetEngineCore().GetDirectXCore();
@@ -146,5 +169,89 @@ int CreateMaterialCommand::Execute(void *ptIn, void *ptOut) const
 		texMatPt->MatCBIndex = sApp->mLatestMatCBIndex++;
 	}
 	sApp->mMaterials[materialName] = move(material);
+	return 0;
+}
+
+int CreateGeometryCommand::Execute(void * ptIn, CommandResult * result) const
+{
+	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
+	auto &dxCore = sApp->GetEngineCore().GetDirectXCore();
+	// DirectX CommandList is needed to execute this command.
+	// Reset the command list to prep for initialization commands.
+	ThrowIfFailed(dxCore.GetCommandList()->Reset(dxCore.GetCommandAllocator(), nullptr));
+
+	GeometryGenerator::MeshData mesh;
+	mesh.Indices32 = indices;
+	mesh.Vertices.resize(vertices.size());
+
+	for (int i = 0; i < vertices.size(); i++)
+	{
+		mesh.Vertices[i].Position = vertices[i].Position;
+		mesh.Vertices[i].Normal = vertices[i].Normal;
+		mesh.Vertices[i].TangentU = vertices[i].TangentU;
+		mesh.Vertices[i].TexC = vertices[i].TexC;
+	}
+
+	UINT vertexOffset = 0;
+	UINT indexOffset = 0;
+
+	// Define the SubmeshGeometry that cover different 
+	// regions of the vertex/index buffers.
+
+	SubmeshGeometry submesh;
+	submesh.IndexCount = (UINT)indices.size();
+	submesh.StartIndexLocation = indexOffset;
+	submesh.BaseVertexLocation = vertexOffset;
+	submesh.Bounds = mesh.CalculateBounds();
+
+	//
+	// Extract the vertex elements we are interested in and pack the
+	// vertices of all the meshes into one vertex buffer.
+	//
+
+	auto totalVertexCount = mesh.Vertices.size();
+
+	vector<GeometryGenerator::Vertex> vertices(totalVertexCount);
+	UINT k = 0;
+	for (size_t i = 0; i < mesh.Vertices.size(); ++i, ++k)
+	{
+		vertices[k] = mesh.Vertices[i];
+	}
+
+	vector<uint16_t> indices;
+	indices.insert(indices.end(), begin(mesh.GetIndices16()), end(mesh.GetIndices16()));
+
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(GeometryGenerator::Vertex);
+	const UINT ibByteSize = (UINT)indices.size() * sizeof(uint16_t);
+
+	auto geo = make_unique<MeshGeometry>();
+
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+
+	geo->VertexBufferGPU = CreateDefaultBuffer(dxCore.GetDevice(),
+		dxCore.GetCommandList(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
+
+	geo->IndexBufferGPU = CreateDefaultBuffer(dxCore.GetDevice(),
+		dxCore.GetCommandList(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+
+	geo->VertexByteStride = sizeof(GeometryGenerator::Vertex);
+	geo->VertexBufferByteSize = vbByteSize;
+	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
+	geo->IndexBufferByteSize = ibByteSize;
+
+	geo->DrawArgs[meshName] = submesh;
+	sApp->mGeometries[geometryName] = move(geo);
+
+	// Execute the initialization commands.
+	ThrowIfFailed(dxCore.GetCommandList()->Close());
+	ID3D12CommandList* cmdsListsInitialization[] = { dxCore.GetCommandList() };
+	dxCore.GetCommandQueue()->ExecuteCommandLists(_countof(cmdsListsInitialization), cmdsListsInitialization);
+
+	// Wait until initialization is complete.
+	dxCore.FlushCommandQueue();
 	return 0;
 }

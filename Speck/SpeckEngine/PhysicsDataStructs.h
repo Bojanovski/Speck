@@ -36,6 +36,8 @@ namespace Speck
 
 	struct RigidBodyData
 	{
+		bool updateToGPU;
+		UINT movementMode;
 		DirectX::XMFLOAT4X4 mWorld;
 	};
 

@@ -68,6 +68,6 @@ void main(int3 threadGroupID : SV_GroupID, int3 dispatchThreadID : SV_DispatchTh
 	lambdaDenominator += grad_pi_Ci*grad_pi_Ci;
 	roi += thisSpeck.mass * W_poly6(0.0f, h); // this particle's contribution to the density
 	float C_density_constraint = roi * invRo0 - 1.0f; // densitiy constraint
-	float lambda = -C_density_constraint / (lambdaDenominator + 0.1f);
+	float lambda = -C_density_constraint / (lambdaDenominator + 100.0f);
 	gSpecksConstraints[speckIndex].densityConstraintLambda = lambda;
 }

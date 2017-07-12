@@ -13,8 +13,8 @@ void main(int3 threadGroupID : SV_GroupID, int3 dispatchThreadID : SV_DispatchTh
 	float3 p1 = thisSpeck.pos_predicted;
 	float3 totalDeltaP = float3(0.0f, 0.0f, 0.0f);
 	uint n = gSpecksConstraints[speckIndex].numSpeckRigidBodies;
+	if (n > NUM_RIGID_BODY_CONSTRAINTS_PER_SPECK) n = NUM_RIGID_BODY_CONSTRAINTS_PER_SPECK;
 	
-
 	for (uint i = 0; i < n; ++i)
 	{
 		RigidBodyConstraint rbc = gSpecksConstraints[speckIndex].speckRigidBodyConstraint[i];
@@ -25,12 +25,10 @@ void main(int3 threadGroupID : SV_GroupID, int3 dispatchThreadID : SV_DispatchTh
 		totalDeltaP += deltaP;
 	}
 
-
-
-
-
 	if (n > 0)
 	{
+		// The results are better when some relaxation is applied
+		float rigidBodyConstraintRelaxation = 0.999f;
 		float3 appliedDeltaP = totalDeltaP / n;
 		thisSpeck.pos_predicted += appliedDeltaP;
 		gSpecks[speckIndex] = thisSpeck;

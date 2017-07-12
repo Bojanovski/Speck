@@ -83,41 +83,6 @@ XMVECTOR MathHelper::RandHemisphereUnitVec3(XMVECTOR n)
 	}
 }
 
-XMMATRIX MathHelper::GetOuterProduct3X3(FXMVECTOR a, FXMVECTOR b)
-{
-	XMMATRIX ret;
-	// first row
-	ret.r[0].m128_f32[0] = a.m128_f32[0] * b.m128_f32[0];
-	ret.r[0].m128_f32[1] = a.m128_f32[0] * b.m128_f32[1];
-	ret.r[0].m128_f32[2] = a.m128_f32[0] * b.m128_f32[2];
-
-	// second row
-	ret.r[1].m128_f32[0] = a.m128_f32[1] * b.m128_f32[0];
-	ret.r[1].m128_f32[1] = a.m128_f32[1] * b.m128_f32[1];
-	ret.r[1].m128_f32[2] = a.m128_f32[1] * b.m128_f32[2];
-
-	// third row
-	ret.r[2].m128_f32[0] = a.m128_f32[2] * b.m128_f32[0];
-	ret.r[2].m128_f32[1] = a.m128_f32[2] * b.m128_f32[1];
-	ret.r[2].m128_f32[2] = a.m128_f32[2] * b.m128_f32[2];
-
-	return ret;
-}
-
-XMMATRIX MathHelper::GetOuterProduct2X2(FXMVECTOR a, FXMVECTOR b)
-{
-	XMMATRIX ret;
-	// first row
-	ret.r[0].m128_f32[0] = a.m128_f32[0] * b.m128_f32[0];
-	ret.r[0].m128_f32[1] = a.m128_f32[0] * b.m128_f32[1];
-
-	// second row
-	ret.r[1].m128_f32[0] = a.m128_f32[1] * b.m128_f32[0];
-	ret.r[1].m128_f32[1] = a.m128_f32[1] * b.m128_f32[1];
-
-	return ret;
-}
-
 void MathHelper::QR_Decomposition3X3(CXMMATRIX A, XMMATRIX *Q, XMMATRIX *QT, XMMATRIX *R)
 {
 	// https://en.wikipedia.org/wiki/QR_decomposition
@@ -228,39 +193,3 @@ XMVECTOR MathHelper::GetEigenvaluesSymmetric3X3(CXMMATRIX A)
 	return XMVectorSet(eig1, eig2, eig3, 0.0f);
 }
 
-XMMATRIX MathHelper::GetInverse3X3(CXMMATRIX M)
-{
-	// From https://en.wikipedia.org/wiki/Invertible_matrix#Inversion_of_3_.C3.97_3_matrices
-	float a = M.r[0].m128_f32[0];
-	float b = M.r[0].m128_f32[1];
-	float c = M.r[0].m128_f32[2];
-
-	float d = M.r[1].m128_f32[0];
-	float e = M.r[1].m128_f32[1];
-	float f = M.r[1].m128_f32[2];
-
-	float g = M.r[2].m128_f32[0];
-	float h = M.r[2].m128_f32[1];
-	float i = M.r[2].m128_f32[2];
-
-	float A = (e*i - f*h);
-	float D = -(b*i - c*h);
-	float G = (b*f - c*e);
-
-	float B = -(d*i - f*g);
-	float E = (a*i - c*g);
-	float H = -(a*f - c*d);
-
-	float C = (d*h - e*g);
-	float F = -(a*h - b*g);
-	float I = (a*e - b*d);
-
-	float detM = a*A + b*B + c*C;
-	float invDetM = 1.0f / detM;
-	XMMATRIX ret;
-	ret.r[0] = invDetM * XMVectorSet(A, D, G, 0.0f);
-	ret.r[1] = invDetM * XMVectorSet(B, E, H, 0.0f);
-	ret.r[2] = invDetM * XMVectorSet(C, F, I, 0.0f);
-	ret.r[3] = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
-	return ret;
-}

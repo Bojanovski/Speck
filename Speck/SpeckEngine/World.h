@@ -3,6 +3,7 @@
 #define WORLD_H
 
 #include "SpeckEngineDefinitions.h"
+#include "Command.h"
 
 namespace Speck
 {
@@ -18,9 +19,13 @@ namespace Speck
 		World& operator=(const World& v) = delete;
 
 		virtual void Initialize(App* app) = 0;
-		virtual void Update(App* app) = 0;
-		virtual void PreDrawUpdate(App* app) = 0;
-		virtual void Draw(App* app, UINT stage) = 0;
+		virtual int ExecuteCommand(const WorldCommand &command, CommandResult *result = 0);
+		virtual void Update() = 0;
+		virtual void PreDrawUpdate() = 0;
+		virtual void Draw(UINT stage) = 0;
+
+	protected:
+		App *mApp;
 	};
 }
 

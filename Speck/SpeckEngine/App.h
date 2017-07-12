@@ -29,8 +29,12 @@ namespace Speck
 
 	protected:
 		DLL_EXPORT virtual void Initialize() = 0;
+
 		DLL_EXPORT App &GetApp();
 		DLL_EXPORT App const &GetApp() const;
+
+		DLL_EXPORT World &GetWorld();
+		DLL_EXPORT World const &GetWorld() const;
 
 		DLL_EXPORT EngineCore &GetEngineCore();
 		DLL_EXPORT EngineCore const &GetEngineCore() const;
@@ -72,8 +76,8 @@ namespace Speck
 		EngineCore const &GetEngineCore() const;
 
 	private:
-		DLL_EXPORT void PushState(std::unique_ptr<AppState> appState);
-		DLL_EXPORT void PopState();
+		void PushState(std::unique_ptr<AppState> appState);
+		void PopState();
 
 	private:
 		std::vector<std::unique_ptr<AppState>> mAppStatesStack;
@@ -86,14 +90,14 @@ namespace Speck
 	class App : public EngineUser, public WorldUser
 	{
 	public:
-		DLL_EXPORT App(EngineCore &ec, World &w);
-		DLL_EXPORT virtual ~App();
+		App(EngineCore &ec, World &w);
+		virtual ~App();
 		App(const App& v) = delete;
 		App& operator=(const App& v) = delete;
 
 		virtual int Run(std::unique_ptr<AppState> initialState) = 0;
 		virtual bool Initialize() = 0;
-		virtual int ExecuteCommand(const Command &command);
+		virtual int ExecuteCommand(const AppCommand &command, CommandResult *result = 0);
 		AppStatesManager	&GetAppStatesManager() { return mAppStatesManager; }
 
 	protected:

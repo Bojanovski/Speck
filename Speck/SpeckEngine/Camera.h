@@ -36,12 +36,12 @@ namespace Speck
 		float GetNearZ() const { return mNearZ; }
 		float GetFarZ() const { return mFarZ; }
 		float GetFovY() const { return mFovY; }
-		float GetFovX() const;
+		DLL_EXPORT float GetFovX() const;
 
 		// Get near and far plane dimensions in view space coordinates.
-		float GetNearWindowWidth() const;
+		DLL_EXPORT float GetNearWindowWidth() const;
 		float GetNearWindowHeight() const { return mNearWindowHeight; }
-		float GetFarWindowWidth() const;
+		DLL_EXPORT float GetFarWindowWidth() const;
 		float GetFarWindowHeight() const { return mFarWindowHeight; }
 
 		// Get View / Proj matrices.
@@ -50,18 +50,18 @@ namespace Speck
 		DirectX::XMMATRIX GetViewProj() const { return XMLoadFloat4x4(&mView) * XMLoadFloat4x4(&mProj); }
 
 		// Set frustum.
-		void SetLens(float fovY, float aspect, float zn, float zf);
+		DLL_EXPORT void SetLens(float fovY, float aspect, float zn, float zf);
 
 		// Define camera space via LookAt parameters.
-		void LookAt(DirectX::FXMVECTOR pos, DirectX::FXMVECTOR target, DirectX::FXMVECTOR worldUp);
-		void LookAt(const DirectX::XMFLOAT3 &pos, const DirectX::XMFLOAT3 &target, const DirectX::XMFLOAT3 &worldUp);
+		DLL_EXPORT void LookAt(DirectX::FXMVECTOR pos, DirectX::FXMVECTOR target, DirectX::FXMVECTOR worldUp);
+		DLL_EXPORT void LookAt(const DirectX::XMFLOAT3 &pos, const DirectX::XMFLOAT3 &target, const DirectX::XMFLOAT3 &worldUp);
 
 		// Get the frustum volume of this camera
 		DirectX::BoundingFrustum const &GetFrustum() const { return mFrustum; }
 
 	private:
 		// After modifying camera position/orientation, call to rebuild the view matrix once per frame.
-		void UpdateViewMatrix();
+		DLL_EXPORT void UpdateViewMatrix();
 
 	private:
 		//Camera coordinate system with coordinates relative to world space.

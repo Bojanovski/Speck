@@ -212,6 +212,9 @@
     <ClInclude Include="Transform.h">
       <Filter>Header Files\EngineUserInterface</Filter>
     </ClInclude>
+    <ClInclude Include="SetLookAtCameraController.h">
+      <Filter>Header Files\EngineUserInterface</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="defferedAssemblerPS.hlsl">
@@ -270,6 +273,9 @@
     </FxCompile>
     <FxCompile Include="specksCS_phase5_3.hlsl">
       <Filter>Resource Files\Shaders\specksCS</Filter>
+    </FxCompile>
+    <FxCompile Include="MathHelper.hlsl">
+      <Filter>Resource Files\Shaders</Filter>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>

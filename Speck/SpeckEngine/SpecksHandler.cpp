@@ -163,19 +163,29 @@ namespace GPU
 		// Center of mass of all specks in the rigid body.
 		XMFLOAT3 c;
 	};
+
+	// Used for overwriting rigid body matrix calculated from simulation.
+	struct RigidBodyUploadData
+	{
+		UINT movementMode;
+		// World transform of the rigid body.
+		XMFLOAT4X4 world;
+	};
 }
 
-SpecksHandler::SpecksHandler(EngineCore &ec, World &world, std::vector<std::unique_ptr<FrameResource>> *frameResources, UINT particleNum, UINT stabilizationIteraions, UINT solverIterations)
+SpecksHandler::SpecksHandler(EngineCore &ec, World &world, std::vector<std::unique_ptr<FrameResource>> *frameResources, UINT stabilizationIteraions, UINT solverIterations, UINT substepsIterations)
 	: EngineUser(ec),
 	WorldUser(world),
 	mCurrentFrameResource(nullptr),
-	mParticleNum(particleNum),
+	mParticleNum(0),
 	mSpeckRigidBodyLinksNum(0),
 	mBiggestRigidBodySpeckNum(0),
 	mStabilizationIteraions(stabilizationIteraions),
 	mSolverIterations(solverIterations),
+	mSubstepsIterations(substepsIterations),
 	mOmega(1.5f), // (1 < omega < 2) is proposed in nvidiaFlex2014
-	mDeltaTime(1.0f / 60.0f)
+	mDeltaTime(1.0f / 60.0f),
+	mTimeMultiplier(1.0f)
 {
 	// Extend this for special case when there are too few specks which in 
 	// result makes the finding of neighbour cell IDs unstable (repetitive IDs)
@@ -204,11 +214,14 @@ void SpecksHandler::AddParticles(UINT num)
 	mParticleNum += num;
 }
 
-void SpecksHandler::BuildStaticMembers(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, float speckRadius)
+void SpecksHandler::SetSpeckRadius(float speckRadius)
 {
 	mSpeckRadius = speckRadius;
 	mCellSize = mSpeckRadius * 2.0f;
+}
 
+void SpecksHandler::BuildStaticMembers(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList)
+{
 	HMODULE hMod = LoadLibraryEx(ENGINE_LIBRARY_NAME, NULL, LOAD_LIBRARY_AS_DATAFILE);
 	HRSRC hRes;
 	if (NULL != hMod)
@@ -254,7 +267,7 @@ void SpecksHandler::BuildStaticMembers(ID3D12Device *device, ID3D12GraphicsComma
 	}
 
 	// Root parameter can be a table, root descriptor or root constants.
-	const int rootParametersNum = 14;
+	const int rootParametersNum = 15;
 	CD3DX12_ROOT_PARAMETER slotRootParameter[rootParametersNum];
 
 	// Perfomance TIP: Order from most frequent to least frequent.
@@ -266,12 +279,13 @@ void SpecksHandler::BuildStaticMembers(ID3D12Device *device, ID3D12GraphicsComma
 	slotRootParameter[5].InitAsShaderResourceView(3, 0);			// descriptor table (for static collider edges)
 	slotRootParameter[6].InitAsShaderResourceView(4, 0);			// descriptor table (for external forces)
 	slotRootParameter[7].InitAsShaderResourceView(5, 0);			// descriptor table (for speck - rigid body links)
-	slotRootParameter[8].InitAsUnorderedAccessView(1, 0);			// for specks (physics buffer)
-	slotRootParameter[9].InitAsUnorderedAccessView(2, 0);			// for grid cells
-	slotRootParameter[10].InitAsUnorderedAccessView(3, 0);			// for constraints
-	slotRootParameter[11].InitAsUnorderedAccessView(4, 0);			// for collision spaces
-	slotRootParameter[12].InitAsUnorderedAccessView(5, 0);			// for rigid bodies
-	slotRootParameter[13].InitAsUnorderedAccessView(6, 0);			// for speck rigid body links cache
+	slotRootParameter[8].InitAsShaderResourceView(6, 0);			// descriptor table (for rigid body uploader)
+	slotRootParameter[9].InitAsUnorderedAccessView(1, 0);			// for specks (physics buffer)
+	slotRootParameter[10].InitAsUnorderedAccessView(2, 0);			// for grid cells
+	slotRootParameter[11].InitAsUnorderedAccessView(3, 0);			// for constraints
+	slotRootParameter[12].InitAsUnorderedAccessView(4, 0);			// for collision spaces
+	slotRootParameter[13].InitAsUnorderedAccessView(5, 0);			// for rigid bodies
+	slotRootParameter[14].InitAsUnorderedAccessView(6, 0);			// for speck rigid body links cache
 
 	// A root signature is an array of root parameters.
 	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(rootParametersNum, slotRootParameter, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_NONE);
@@ -402,6 +416,8 @@ void SpecksHandler::BuildBuffers(std::vector<std::unique_ptr<FrameResource>> *fr
 		(*frameResources)[i]->UploadBuffers.push_back(make_unique<UploadBuffer<GPU::ExternalForceData>>(device, MAX_EXTERNAL_FORCES, false));
 		// Create speck rigid body link buffers
 		(*frameResources)[i]->UploadBuffers.push_back(make_unique<UploadBuffer<GPU::SpeckRigidBodyLink>>(device, MAX_SPECK_RIGID_BODY_LINKS, false));
+		// Create rigid body uploader structures
+		(*frameResources)[i]->UploadBuffers.push_back(make_unique<UploadBuffer<GPU::RigidBodyUploadData>>(device, MAX_RIGID_BODIES, false));
 		
 		// Create buffer for specks rendering.
 		ResourcePair buffer;
@@ -412,12 +428,13 @@ void SpecksHandler::BuildBuffers(std::vector<std::unique_ptr<FrameResource>> *fr
 		buffer.first = CreateDefaultBuffer(device, cmdList, &data[0], byteSize, rd, buffer.second);
 		(*frameResources)[i]->Buffers.push_back(buffer);
 	}
-	mSpecks.mBufferIndex = (UINT)((*frameResources)[0]->UploadBuffers.size() - 6);
-	mStaticColliders.mBufferIndex = (UINT)((*frameResources)[0]->UploadBuffers.size() - 5);
-	mStaticColliderFaces.mBufferIndex = (UINT)((*frameResources)[0]->UploadBuffers.size() - 4);
-	mStaticColliderEdges.mBufferIndex = (UINT)((*frameResources)[0]->UploadBuffers.size() - 3);
-	mExternalForces.mBufferIndex = (UINT)((*frameResources)[0]->UploadBuffers.size() - 2);
-	mSpeckRigidBodyLink.mBufferIndex = (UINT)((*frameResources)[0]->UploadBuffers.size() - 1);
+	mSpecks.mBufferIndex				= (UINT)((*frameResources)[0]->UploadBuffers.size() - 7);
+	mStaticColliders.mBufferIndex		= (UINT)((*frameResources)[0]->UploadBuffers.size() - 6);
+	mStaticColliderFaces.mBufferIndex	= (UINT)((*frameResources)[0]->UploadBuffers.size() - 5);
+	mStaticColliderEdges.mBufferIndex	= (UINT)((*frameResources)[0]->UploadBuffers.size() - 4);
+	mExternalForces.mBufferIndex		= (UINT)((*frameResources)[0]->UploadBuffers.size() - 3);
+	mSpeckRigidBodyLink.mBufferIndex	= (UINT)((*frameResources)[0]->UploadBuffers.size() - 2);
+	mRigidBodyUploader.mBufferIndex		= (UINT)((*frameResources)[0]->UploadBuffers.size() - 1);
 
 	mSpecksRender.mBufferIndex = (UINT)((*frameResources)[0]->Buffers.size() - 1);
 }
@@ -546,6 +563,15 @@ void SpecksHandler::UpdateCSPhases()
 	phasesCSTG[11].mName = "PHASE_FINAL";
 #endif
 
+
+	//phasesCSTG[5].mRepeat = 0;
+	//phasesCSTG[6].mRepeat = 0;
+	//phasesCSTG[7].mRepeat = 0;
+	//phasesCSTG[8].mRepeat = 0;
+	//phasesCSTG[9].mRepeat = 0;
+	//phasesCSTG[10].mRepeat = 0;
+
+
 }
 
 void SpecksHandler::UpdateCPU(FrameResource *currentFrameResource)
@@ -665,9 +691,53 @@ void SpecksHandler::UpdateCPU(FrameResource *currentFrameResource)
 		mSpeckRigidBodyLink.mNumFramesDirty--;
 		mSpeckRigidBodyLinksNum = counter;
 	}
+
+	// Update rigid body uploader
+	if (mRigidBodyUploader.mNumFramesDirty > 0)
+	{
+		auto upBuff = static_cast<UploadBuffer<GPU::RigidBodyUploadData> *>(currentFrameResource->UploadBuffers[mRigidBodyUploader.mBufferIndex].get());
+		GPU::RigidBodyUploadData data;
+		UINT counter = 0;
+		for (UINT i = 0; i < (UINT)world->mSpeckRigidBodyData.size(); ++i)
+		{
+			if (world->mSpeckRigidBodyData[i].mRBData.updateToGPU)
+			{
+				RigidBodyData &rbData = world->mSpeckRigidBodyData[i].mRBData;
+				data.movementMode = rbData.movementMode;
+				data.world = rbData.mWorld;
+				upBuff->CopyData(i, data);
+			}
+		}
+		mRigidBodyUploader.mNumFramesDirty--;
+
+		// All frames have been updated, set all flags to false so that for the next update of some
+		// rigid body, only that one will be updated.
+		if (mRigidBodyUploader.mNumFramesDirty <= 0)
+		{
+			for (UINT i = 0; i < (UINT)world->mSpeckRigidBodyData.size(); ++i)
+			{
+				world->mSpeckRigidBodyData[i].mRBData.updateToGPU = false;
+			}
+		}
+	}
 }
 
 void SpecksHandler::UpdateGPU()
+{
+	float newTime = MathHelper::FixTimeStep(GetEngineCore().GetTimer()->DeltaTime());
+	float timeLerpSpeed = 0.01f;
+	mDeltaTime = (1.0f - timeLerpSpeed) * mDeltaTime + timeLerpSpeed * newTime;
+	float deltaTime = mDeltaTime * mTimeMultiplier;
+	//deltaTime = 0.001f;
+	deltaTime /= mSubstepsIterations;
+
+	for (UINT i = 0; i < mSubstepsIterations; i++)
+	{
+		UpdateGPU_substep(deltaTime);
+	}
+}
+
+void SpecksHandler::UpdateGPU_substep(float deltaTime)
 {
 	GraphicsDebuggerAnnotator gda(GetEngineCore().GetDirectXCore(), "SpecksHandlerUpdateGPU");
 	UpdateCSPhases();
@@ -679,6 +749,7 @@ void SpecksHandler::UpdateGPU()
 	auto staticColliderEdgeBuffer = static_cast<UploadBufferBase *>(mCurrentFrameResource->UploadBuffers[mStaticColliderEdges.mBufferIndex].get());
 	auto externalForcesBuffer = static_cast<UploadBufferBase *>(mCurrentFrameResource->UploadBuffers[mExternalForces.mBufferIndex].get());
 	auto speckRigidBodyLinkBuffer = static_cast<UploadBufferBase *>(mCurrentFrameResource->UploadBuffers[mSpeckRigidBodyLink.mBufferIndex].get());
+	auto rigidBodyUploader = static_cast<UploadBufferBase *>(mCurrentFrameResource->UploadBuffers[mRigidBodyUploader.mBufferIndex].get());
 	auto upBuff5 = static_cast<UploadBufferBase *>(mCurrentFrameResource->UploadBuffers[mSpecks.mBufferIndex].get());
 	ID3D12Resource *writeToResource = mCurrentFrameResource->Buffers[mSpecksRender.mBufferIndex].first.Get();
 	ID3D12Resource *readFromResource = upBuff5->Resource();
@@ -698,12 +769,6 @@ void SpecksHandler::UpdateGPU()
 	UINT numExternalForces = (UINT)world->mExternalForces.size();
 	memcpy(&val[5 * 4], &numExternalForces, sizeof(UINT));
 	memcpy(&val[6 * 4], &mSpeckRigidBodyLinksNum, sizeof(UINT));
-
-	float newTime = MathHelper::FixTimeStep(GetEngineCore().GetTimer()->DeltaTime());
-	float timeLerpSpeed = 0.01f;
-	mDeltaTime = (1.0f - timeLerpSpeed) * mDeltaTime + timeLerpSpeed * newTime;
-	float deltaTime = mDeltaTime;
-	//deltaTime = 0.00066666f;
 	memcpy(&val[7 * 4], &deltaTime, sizeof(float));
 	memcpy(&val[8 * 4], &mOmega, sizeof(float));
 	memcpy(&val[9 * 4], &mSpecksRender.mInitializeSpecksStartIndex, sizeof(UINT));
@@ -721,12 +786,13 @@ void SpecksHandler::UpdateGPU()
 	cmdList->SetComputeRootShaderResourceView(5, staticColliderEdgeBuffer->Resource()->GetGPUVirtualAddress());
 	cmdList->SetComputeRootShaderResourceView(6, externalForcesBuffer->Resource()->GetGPUVirtualAddress());
 	cmdList->SetComputeRootShaderResourceView(7, speckRigidBodyLinkBuffer->Resource()->GetGPUVirtualAddress());
-	cmdList->SetComputeRootUnorderedAccessView(8, mSpecksBuffer.first.Get()->GetGPUVirtualAddress());
-	cmdList->SetComputeRootUnorderedAccessView(9, mGridCellsBuffer.first.Get()->GetGPUVirtualAddress());
-	cmdList->SetComputeRootUnorderedAccessView(10, mContactConstraintsBuffer.first.Get()->GetGPUVirtualAddress());
-	cmdList->SetComputeRootUnorderedAccessView(11, mSpeckCollisionSpacesBuffer.first.Get()->GetGPUVirtualAddress());
-	cmdList->SetComputeRootUnorderedAccessView(12, mRigidBodiesBuffer.first.Get()->GetGPUVirtualAddress());
-	cmdList->SetComputeRootUnorderedAccessView(13, mSpeckRigidBodyLinkCacheBuffer.first.Get()->GetGPUVirtualAddress());
+	cmdList->SetComputeRootShaderResourceView(8, rigidBodyUploader->Resource()->GetGPUVirtualAddress());
+	cmdList->SetComputeRootUnorderedAccessView(9, mSpecksBuffer.first.Get()->GetGPUVirtualAddress());
+	cmdList->SetComputeRootUnorderedAccessView(10, mGridCellsBuffer.first.Get()->GetGPUVirtualAddress());
+	cmdList->SetComputeRootUnorderedAccessView(11, mContactConstraintsBuffer.first.Get()->GetGPUVirtualAddress());
+	cmdList->SetComputeRootUnorderedAccessView(12, mSpeckCollisionSpacesBuffer.first.Get()->GetGPUVirtualAddress());
+	cmdList->SetComputeRootUnorderedAccessView(13, mRigidBodiesBuffer.first.Get()->GetGPUVirtualAddress());
+	cmdList->SetComputeRootUnorderedAccessView(14, mSpeckRigidBodyLinkCacheBuffer.first.Get()->GetGPUVirtualAddress());
 
 	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(writeToResource, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 	for (UINT i = 0; i < mCS_phasesCount; i++)
@@ -749,18 +815,18 @@ void SpecksHandler::UpdateGPU()
 			// Begin with current phase
 			cmdList->Dispatch(phasesCSTG[i].mX, phasesCSTG[i].mY, phasesCSTG[i].mZ);
 
-			//if (phasesCSTG[i].mUseBarrierOnSpecksBuffer)
-			cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(mSpecksBuffer.first.Get()));
-			//if (phasesCSTG[i].mUseBarrierOnGridCellsBuffer)
-			cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(mGridCellsBuffer.first.Get()));
-			//if (phasesCSTG[i].mUseBarrierOnConstraintsBuffer)
-			cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(mContactConstraintsBuffer.first.Get()));
-			//if (phasesCSTG[i].mUseBarrierOnSpeckCollisionSpacesBuffer)
-			cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(mSpeckCollisionSpacesBuffer.first.Get()));
-			//if (phasesCSTG[i].mUseBarrierOnRigidBodiesBuffer)
-			cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(mRigidBodiesBuffer.first.Get()));
-			//if (phasesCSTG[i].mUseSpeckRigidBodyLinkCacheBuffer)
-			cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(mSpeckRigidBodyLinkCacheBuffer.first.Get()));
+			if (phasesCSTG[i].mUseBarrierOnSpecksBuffer)
+				cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(mSpecksBuffer.first.Get()));
+			if (phasesCSTG[i].mUseBarrierOnGridCellsBuffer)
+				cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(mGridCellsBuffer.first.Get()));
+			if (phasesCSTG[i].mUseBarrierOnConstraintsBuffer)
+				cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(mContactConstraintsBuffer.first.Get()));
+			if (phasesCSTG[i].mUseBarrierOnSpeckCollisionSpacesBuffer)
+				cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(mSpeckCollisionSpacesBuffer.first.Get()));
+			if (phasesCSTG[i].mUseBarrierOnRigidBodiesBuffer)
+				cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(mRigidBodiesBuffer.first.Get()));
+			if (phasesCSTG[i].mUseSpeckRigidBodyLinkCacheBuffer)
+				cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(mSpeckRigidBodyLinkCacheBuffer.first.Get()));
 		}
 	}
 	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(writeToResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_GENERIC_READ));

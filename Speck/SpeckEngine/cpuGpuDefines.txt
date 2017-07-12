@@ -15,7 +15,11 @@
 #define DEFERRED_RENDER_TARGETS_COUNT 4
 
 // Item rendering
-#define MATERIAL_TEXTURES_COUNT 6
+#define MATERIAL_TEXTURES_COUNT					6
+#define RENDER_ITEM_SPECIAL_PARAM_N				1
+#define RENDER_ITEM_TYPE_STATIC					0
+#define RENDER_ITEM_TYPE_SPECK_RIGID_BODY		1
+#define RENDER_ITEM_TYPE_SPECK_SKELETAL_BODY	2
 
 // Parallax occlusion
 #define PARALLAX_OCCLUSION_MAX_STEPS 20
@@ -47,8 +51,11 @@
 #define NUM_RIGID_BODY_CONSTRAINTS_PER_SPECK 3
 
 // Rigid bodies:
-#define MAX_RIGID_BODIES 100
+#define MAX_RIGID_BODIES 1000
 #define MAX_SPECK_RIGID_BODY_LINKS MAX_SPECKS
 #define SPECK_RIGID_BODY_LINKS_CS_N_THREADS 64 // number of speck rigid body links to proces concurrently in one thread group batch
+#define RIGID_BODY_MOVEMENT_MODE_CPU 0
+#define RIGID_BODY_MOVEMENT_MODE_GPU 1
+#define QR_ALGORITHM_ITERATION_COUNT 100
 
 #endif

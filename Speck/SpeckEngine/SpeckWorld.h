@@ -16,28 +16,40 @@ namespace Speck
 	class CubeRenderTarget;
 	class SpecksHandler;
 
+	namespace AppCommands
+	{
+	}
+
+	namespace WorldCommands
+	{
+		struct AddRenderItemCommand;
+	}
+
 	// World (or scene) containing everything visible.
 	class SpeckWorld : public World
 	{
 		friend class SpeckApp;
+		friend struct WorldCommands::AddRenderItemCommand;
 
 	public:
-		SpeckWorld(UINT maxInstancedObject, UINT maxSingleObjects);
+		SpeckWorld(UINT maxRenderItemsCount);
 		~SpeckWorld();
 		SpeckWorld(const SpeckWorld& v) = delete;
 		SpeckWorld& operator=(const SpeckWorld& v) = delete;
 		PassConstants const *GetPassConstants() const { return &mMainPassCB; }
 		virtual void Initialize(App* app) override;
-		virtual void Update(App* app) override;
-		virtual void PreDrawUpdate(App* app) override;
-		virtual void Draw(App *app, UINT stage) override;
+		virtual int ExecuteCommand(const WorldCommand &command, CommandResult *result = 0) override;
+		virtual void Update() override;
+		virtual void PreDrawUpdate() override;
+		virtual void Draw(UINT stage) override;
 
 		SpecksRenderItem *GetSpeckInstancesRenderItem() { return mSpeckInstancesRenderItem; }
-		UINT GetMaxSingleObjects() const { return mMaxSingleObjects; }
+		UINT GetMaxRenderItemsCount() const { return mMaxRenderItemsCount; }
 		SpecksHandler *GetSpecksHandler() { return mSpecksHandler.get(); }
 
 	private:
-		void Draw_Scene(App* app);				// used to draw scene normally
+		void Draw_Scene();				// used to draw scene normally
+		UINT GetRenderItemFreeSpace();
 
 	public:
 		// Rendering
@@ -61,7 +73,11 @@ namespace Speck
 
 	private:
 		SpecksRenderItem *mSpeckInstancesRenderItem;
-		const UINT mMaxSingleObjects;
+		// Maximal number of render items to exist concurrently on the scene.
+		const UINT mMaxRenderItemsCount;
+		// Stack representing available free spaces in the render item buffer.
+		std::vector<UINT> mFreeSpacesRenderItemBuffer;
+
 		bool mFrustumCullingEnabled = true;
 		PassConstants mMainPassCB;
 	};

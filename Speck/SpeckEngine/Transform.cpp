@@ -15,7 +15,14 @@ XMMATRIX Transform::GetWorldMatrix() const
 	return ret;
 }
 
-XMMATRIX Transform::GetInvWorldMatrix() const
+XMMATRIX Transform::GetTransposeWorldMatrix() const
+{
+	XMMATRIX ret = GetWorldMatrix();
+	ret = XMMatrixTranspose(ret);
+	return ret;
+}
+
+XMMATRIX Transform::GetInverseWorldMatrix() const
 {
 	XMVECTOR s = XMLoadFloat3(&mS);
 	XMVECTOR is = XMVectorSet(1.0f / XMVectorGetX(s), 1.0f / XMVectorGetY(s), 1.0f / XMVectorGetZ(s), 0.0f);
@@ -37,9 +44,14 @@ void Transform::Store(XMFLOAT4X4 * dest) const
 	XMStoreFloat4x4(dest, GetWorldMatrix());
 }
 
-void Transform::StoreInv(XMFLOAT4X4 * dest) const
+void Transform::StoreTranspose(XMFLOAT4X4 * dest) const
 {
-	XMStoreFloat4x4(dest, GetInvWorldMatrix());
+	XMStoreFloat4x4(dest, GetTransposeWorldMatrix());
+}
+
+void Transform::StoreInverse(XMFLOAT4X4 * dest) const
+{
+	XMStoreFloat4x4(dest, GetInverseWorldMatrix());
 }
 
 Transform Transform::Identity()

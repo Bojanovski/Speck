@@ -36,9 +36,9 @@ namespace Speck
 		~InputHandler() {}
 
 		void Initialize(HWND hwnd) { mHwnd = hwnd; }
-		void GetMouseStates(MouseState *curr, MouseState *prev) const;
-		void GetMouseCoords(int *sx, int *sy) const;
-		bool IsPressed(UINT keyCode, float *pressedTime) const;
+		DLL_EXPORT void GetMouseStates(MouseState *curr, MouseState *prev) const;
+		DLL_EXPORT void GetMouseCoords(int *sx, int *sy) const;
+		DLL_EXPORT bool IsPressed(UINT keyCode, float *pressedTime) const;
 
 	private:
 		MouseState mPrevMouseState, mCurrMouseState, mNextMouseState;

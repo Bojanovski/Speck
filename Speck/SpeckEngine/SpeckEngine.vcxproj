@@ -62,6 +62,7 @@
     <ClInclude Include="FPCameraController.h" />
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="App.h" />
+    <ClInclude Include="SetLookAtCameraController.h" />
     <ClInclude Include="Timer.h" />
     <ClInclude Include="GenericShaderStructures.h" />
     <ClInclude Include="GeometryGenerator.h" />
@@ -111,6 +112,13 @@
     </FxCompile>
     <None Include="milionPrimes.bin" />
     <None Include="sharedStructures.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="MathHelper.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
       <FileType>Document</FileType>
     </None>
     <FxCompile Include="specksCS_phase0.hlsl">

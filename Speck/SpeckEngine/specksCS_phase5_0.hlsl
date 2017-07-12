@@ -87,7 +87,7 @@ void ProcessNormalSpeck(
 				float4 SDF_grad_localSpace = float4(x, y, z, 0.0f);
 				float lenSq = dot(SDF_grad_localSpace, SDF_grad_localSpace);
 
-				// Every rigid body this speck is part of will suffice
+				// Every rigid body this speck is part of will suffice, so we use the first one
 				uint rbIndex = gSpecksConstraints[otherSpeckIndex].speckRigidBodyConstraint[0].rigidBodyIndex;
 				float4x4 rbWorld = gRigidBodies[rbIndex].world;
 				float3 SDF_grad = mul(SDF_grad_localSpace, rbWorld).xyz;
@@ -98,6 +98,10 @@ void ProcessNormalSpeck(
 					float sphereProj = dot(grad_p1_C, SDF_grad);
 					if (sphereProj < 0.0f)
 						grad_p1_C -= 2.0f * sphereProj * SDF_grad;
+				}
+				else if (lenSq == 0.0f)
+				{
+					// do nothing, grad_p1_C is already as it should be
 				}
 				else // this is not a boundary speck
 				{
@@ -191,6 +195,10 @@ void ProcessFluidSpeck(
 				if (sphereProj < 0.0f)
 					grad_p1_C -= 2.0f * sphereProj * SDF_grad;
 			}
+			else if (lenSq == 0.0f)
+			{
+				// do nothing, grad_p1_C is already as it should be
+			}
 			else // this is not a boundary speck
 			{
 				grad_p1_C = SDF_grad;
@@ -250,91 +258,104 @@ void ProcessRigidBodySpeck(
 	out float3 totalDeltaP, out uint n)
 {
 	float doubleSpeckRadius = gSpeckRadius * 2.0f;
+	// Friction data
 	float dynamicFrictionMi = thisSpeck.frictionCoefficient;
 	float staticFrictionMi = 0.5f*(dynamicFrictionMi + 1.0f);
+	// Get the codes for this speck
 	uint thisSpeckUpperCode = thisSpeck.code & SPECK_CODE_UPPER_WORD_MASK;
 	uint thisSpeckLowerCode = thisSpeck.code & SPECK_CODE_LOWER_WORD_MASK;
 	totalDeltaP = float3(0.0f, 0.0f, 0.0f);
 	n = 0;
-
-	// Other specks
-	uint i;
-	for (i = 0; i < gSpecksConstraints[speckIndex].numSpeckContacts; ++i)
+	// All rigid bodies that are not joints have some non zero value as their
+	// lower code and joints have a value equal to zero.
+	bool thisSpeckIsJoint = (thisSpeckLowerCode == 0);
+	if (!thisSpeckIsJoint)
 	{
-		// interpenetration
-		uint otherSpeckIndex = gSpecksConstraints[speckIndex].speckContacts[i].speckIndex;
-		SpeckData otherSpeck = gSpecks[otherSpeckIndex];
-		uint otherSpeckUpperCode = otherSpeck.code & SPECK_CODE_UPPER_WORD_MASK;
-		uint otherSpeckLowerCode = otherSpeck.code & SPECK_CODE_LOWER_WORD_MASK;
-		float w1 = thisSpeck.invMass;
-		float w2 = otherSpeck.invMass;
-		float w = w1 + w2;
-		float3 p1 = thisSpeck.pos_predicted;
-		float3 p2 = otherSpeck.pos_predicted;
-		float3 p21 = p1 - p2;
-		float lenP21 = length(p21);
-		float penetrationDepth = (lenP21 - doubleSpeckRadius);
-		// This is inequality constraint, so clamp every positive value of s to zero.
-		if (penetrationDepth < 0.0f)
+		// Other specks
+		uint i;
+		for (i = 0; i < gSpecksConstraints[speckIndex].numSpeckContacts; ++i)
 		{
-			// Both specks are part of the same rigid body
-			if (otherSpeckUpperCode == SPECK_CODE_RIGID_BODY &&
-				thisSpeckLowerCode == otherSpeckLowerCode)
+			// interpenetration
+			uint otherSpeckIndex = gSpecksConstraints[speckIndex].speckContacts[i].speckIndex;
+			SpeckData otherSpeck = gSpecks[otherSpeckIndex];
+			uint otherSpeckUpperCode = otherSpeck.code & SPECK_CODE_UPPER_WORD_MASK;
+			uint otherSpeckLowerCode = otherSpeck.code & SPECK_CODE_LOWER_WORD_MASK;
+			bool otherSpeckIsJoint = (otherSpeckUpperCode == SPECK_CODE_RIGID_BODY && otherSpeckLowerCode == 0);
+			if (otherSpeckIsJoint) continue; // do not process joints
+
+			float w1 = thisSpeck.invMass;
+			float w2 = otherSpeck.invMass;
+			float w = w1 + w2;
+			float3 p1 = thisSpeck.pos_predicted;
+			float3 p2 = otherSpeck.pos_predicted;
+			float3 p21 = p1 - p2;
+			float lenP21 = length(p21);
+			float penetrationDepth = (lenP21 - doubleSpeckRadius);
+			// This is inequality constraint, so clamp every positive value of s to zero.
+			if (penetrationDepth < 0.0f)
 			{
-				// penetration
-				float s = penetrationDepth / w;
-				float3 grad_p1_C = (p21) / (lenP21);
-				float3 deltaP = -w1 * s * grad_p1_C;
-				totalDeltaP += deltaP;
-				++n;
-			}
-			else // Not part of the same rigid body.
-			{
-				// penetration
-				float s = penetrationDepth / w;
-				float3 grad_p1_C = (p21) / (lenP21);
-				// Special case for grad_p1_C if other speck is part of the rigid body
-				if (otherSpeckUpperCode == SPECK_CODE_RIGID_BODY)
+				// Both specks are part of the same rigid body
+				if (otherSpeckUpperCode == SPECK_CODE_RIGID_BODY &&
+					thisSpeckLowerCode == otherSpeckLowerCode)
 				{
-					float x = otherSpeck.param[0];
-					float y = otherSpeck.param[1];
-					float z = otherSpeck.param[2];
-					float4 SDF_grad_localSpace = float4(x, y, z, 0.0f);
-					float lenSq = dot(SDF_grad_localSpace, SDF_grad_localSpace);
-
-					// Every rigid body this speck is part of will suffice
-					uint rbIndex = gSpecksConstraints[otherSpeckIndex].speckRigidBodyConstraint[0].rigidBodyIndex;
-					float4x4 rbWorld = gRigidBodies[rbIndex].world;
-					float3 SDF_grad = mul(SDF_grad_localSpace, rbWorld).xyz;
-					SDF_grad = normalize(SDF_grad);
-
-					if (lenSq >= 2.0f) // this is a boundary speck
-					{
-						float sphereProj = dot(grad_p1_C, SDF_grad);
-						if (sphereProj < 0.0f)
-							grad_p1_C -= 2.0f * sphereProj * SDF_grad;
-					}
-					else // this is not a boundary speck
-					{
-						grad_p1_C = SDF_grad;
-					}
+					// penetration
+					float s = penetrationDepth / w;
+					float3 grad_p1_C = (p21) / (lenP21);
+					float3 deltaP = -w1 * s * grad_p1_C;
+					totalDeltaP += deltaP;
+					++n;
 				}
+				else // Not part of the same rigid body.
+				{
+					// penetration
+					float s = penetrationDepth / w;
+					float3 grad_p1_C = (p21) / (lenP21);
+					// Special case for grad_p1_C if other speck is part of the rigid body
+					if (otherSpeckUpperCode == SPECK_CODE_RIGID_BODY)
+					{
+						float x = otherSpeck.param[0];
+						float y = otherSpeck.param[1];
+						float z = otherSpeck.param[2];
+						float4 SDF_grad_localSpace = float4(x, y, z, 0.0f);
+						float lenSq = dot(SDF_grad_localSpace, SDF_grad_localSpace);
 
-				float3 deltaP = -w1 * s * grad_p1_C;
-				totalDeltaP += deltaP;
-				++n;
+						uint rbIndex = gSpecksConstraints[otherSpeckIndex].speckRigidBodyConstraint[0].rigidBodyIndex;
+						float4x4 rbWorld = gRigidBodies[rbIndex].world;
+						float3 SDF_grad = mul(SDF_grad_localSpace, rbWorld).xyz;
+						SDF_grad = normalize(SDF_grad);
 
-				// friction
-				float3 x1Vel = p1 - thisSpeck.pos;
-				float3 x2Vel = p2 - otherSpeck.pos;
-				float3 tangentialVelocity = OrthogonalProjection(x1Vel - x2Vel, grad_p1_C);
-				float tvLen = length(tangentialVelocity);
-				float miStatic_d = staticFrictionMi * penetrationDepth;
-				float miDynamic_d = dynamicFrictionMi * penetrationDepth;
-				deltaP = (w1 / w) * tangentialVelocity;
-				if (tvLen >= miStatic_d && tvLen > 0.0f) deltaP *= min(1.0f, miDynamic_d / tvLen);
-				totalDeltaP += deltaP;
-				++n;
+						if (lenSq >= 2.0f) // this is a boundary speck
+						{
+							float sphereProj = dot(grad_p1_C, SDF_grad);
+							if (sphereProj < 0.0f)
+								grad_p1_C -= 2.0f * sphereProj * SDF_grad;
+						}
+						else if (lenSq == 0.0f)
+						{
+							// do nothing, grad_p1_C is already as it should be
+						}
+						else // this is not a boundary speck
+						{
+							grad_p1_C = SDF_grad;
+						}
+					}
+
+					float3 deltaP = -w1 * s * grad_p1_C;
+					totalDeltaP += deltaP;
+					++n;
+
+					// friction
+					float3 x1Vel = p1 - thisSpeck.pos;
+					float3 x2Vel = p2 - otherSpeck.pos;
+					float3 tangentialVelocity = OrthogonalProjection(x1Vel - x2Vel, grad_p1_C);
+					float tvLen = length(tangentialVelocity);
+					float miStatic_d = staticFrictionMi * penetrationDepth;
+					float miDynamic_d = dynamicFrictionMi * penetrationDepth;
+					deltaP = (w1 / w) * tangentialVelocity;
+					if (tvLen >= miStatic_d && tvLen > 0.0f) deltaP *= min(1.0f, miDynamic_d / tvLen);
+					totalDeltaP += deltaP;
+					++n;
+				}
 			}
 		}
 	}

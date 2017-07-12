@@ -17,11 +17,14 @@ using namespace std;
 using namespace DirectX;
 using namespace Speck;
 
-void Speck::CreateSpeckApp(HINSTANCE hInstance, UINT maxNumberOfMaterials, UINT maxInstancedObject, UINT maxSingleObjects, unique_ptr<EngineCore> *ec, unique_ptr<World> *world, unique_ptr<App> *app)
+void Speck::CreateSpeckApp(HINSTANCE hInstance, float speckRadius, UINT maxNumberOfMaterials, UINT maxRenderItemsCount,
+	unique_ptr<EngineCore> *ec, unique_ptr<World> *world, unique_ptr<App> *app)
 {
+	SpecksHandler::SetSpeckRadius(speckRadius);
 	*ec = make_unique<EngineCore>();
-	*world = make_unique<SpeckWorld>(maxInstancedObject, maxSingleObjects);
+	*world = make_unique<SpeckWorld>(maxRenderItemsCount);
 	*app = make_unique<SpeckApp>(hInstance, maxNumberOfMaterials, *ec->get(), *world->get());
+
 }
 
 SpeckApp::SpeckApp(HINSTANCE hInstance, UINT maxNumberOfMaterials, EngineCore &ec, World &w)
@@ -56,7 +59,7 @@ bool SpeckApp::Initialize()
 	
 	// Initialize static data.
 	CubeRenderTarget::BuildStaticMembers(dxCore.GetDevice(), dxCore.GetCommandList());
-	SpecksHandler::BuildStaticMembers(dxCore.GetDevice(), dxCore.GetCommandList(), 0.1f);
+	SpecksHandler::BuildStaticMembers(dxCore.GetDevice(), dxCore.GetCommandList());
 	
 	BuildFrameResources();
 	BuildScreenGeometry();
@@ -121,14 +124,14 @@ void SpeckApp::Update(const Timer& gt)
 		CloseHandle(eventHandle);
 	}
 
-	GetWorld().Update(this);
+	GetWorld().Update();
 	UpdateMaterialBuffer(gt);
 }
 
 void SpeckApp::PreDrawUpdate(const Timer & gt)
 {
 	D3DApp::PreDrawUpdate(gt);
-	GetWorld().PreDrawUpdate(this);
+	GetWorld().PreDrawUpdate();
 }
 
 void SpeckApp::Draw(const Timer& gt)
@@ -175,14 +178,14 @@ void SpeckApp::Draw(const Timer& gt)
 		// Bind all the materials used in this scene.  For structured buffers, we can bypass the heap and 
 		// set as a root descriptor.
 		auto matBuffer = mCurrFrameResource->MaterialBuffer->Resource();
-		dxCore.GetCommandList()->SetGraphicsRootShaderResourceView(3, matBuffer->GetGPUVirtualAddress());
+		dxCore.GetCommandList()->SetGraphicsRootShaderResourceView((UINT)MainPassRootParameter::MaterialsRootDescriptor, matBuffer->GetGPUVirtualAddress());
 
 		// Bind the main pass constant buffer.
 		auto passCB = mCurrFrameResource->PassCB->Resource();
-		dxCore.GetCommandList()->SetGraphicsRootConstantBufferView(4, passCB->GetGPUVirtualAddress());
+		dxCore.GetCommandList()->SetGraphicsRootConstantBufferView((UINT)MainPassRootParameter::PassRootDescriptor, passCB->GetGPUVirtualAddress());
 
 		// Drawing
-		GetWorld().Draw(this, 0);
+		GetWorld().Draw(0);
 
 		// Indicate a state transition on the resource usage.
 		for (UINT i = 0; i < DEFERRED_RENDER_TARGETS_COUNT; i++)
@@ -215,14 +218,14 @@ void SpeckApp::Draw(const Timer& gt)
 		dxCore.GetCommandList()->SetGraphicsRootSignature(mPostProcessRootSignature.Get());
 		dxCore.GetCommandList()->SetPipelineState(mScreenObjPSO.Get());
 
-		// Upload the constants
+		// Upload the settings constants
 		UINT values[] = {
 			(UINT)dxCore.GetClientWidth() * mSuperSampling, (UINT)dxCore.GetClientHeight() * mSuperSampling,
 			(UINT)dxCore.GetClientWidth(), (UINT)dxCore.GetClientHeight() };
-		dxCore.GetCommandList()->SetGraphicsRoot32BitConstants(0, 4, &values, 0);
+		dxCore.GetCommandList()->SetGraphicsRoot32BitConstants((UINT)PostProcessRootParameter::SettingsRootConstant, 4, &values, 0);
 
 		// Bind all the pre rendered scene texture components used in this post process pass.
-		dxCore.GetCommandList()->SetGraphicsRootDescriptorTable(1, mPostProcessSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+		dxCore.GetCommandList()->SetGraphicsRootDescriptorTable((UINT)PostProcessRootParameter::TexturesDescriptorTable, mPostProcessSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
 		auto geo = mGeometries["screenGeo"].get();
 		dxCore.GetCommandList()->IASetVertexBuffers(0, 1, &geo->VertexBufferView());
@@ -277,27 +280,27 @@ void SpeckApp::BuildDefaultTextures()
 {
 	auto &dxCore = GetEngineCore().GetDirectXCore();
 
-	auto defaultAlbedo = std::make_unique<Texture>();
+	auto defaultAlbedo = make_unique<Texture>();
 	defaultAlbedo->Name = "defaultAlbedo";
 	BuildColorTexture({1.0f, 1.0f, 1.0f, 1.0f}, dxCore.GetDevice(), dxCore.GetCommandList(), defaultAlbedo->Resource, defaultAlbedo->UploadHeap);
 
-	auto defaultNormal = std::make_unique<Texture>();
+	auto defaultNormal = make_unique<Texture>();
 	defaultNormal->Name = "defaultNormal";
 	BuildColorTexture({ 128.0f / 255.0f, 128.0f / 255.0f, 1.0f, 1.0f }, dxCore.GetDevice(), dxCore.GetCommandList(), defaultNormal->Resource, defaultNormal->UploadHeap);
 
-	auto defaultHeight = std::make_unique<Texture>();
+	auto defaultHeight = make_unique<Texture>();
 	defaultHeight->Name = "defaultHeight";
 	BuildColorTexture({ 0.5f, 0.5f, 0.5f, 1.0f }, dxCore.GetDevice(), dxCore.GetCommandList(), defaultHeight->Resource, defaultHeight->UploadHeap);
 
-	auto defaultMetalness = std::make_unique<Texture>();
+	auto defaultMetalness = make_unique<Texture>();
 	defaultMetalness->Name = "defaultMetalness";
 	BuildColorTexture({ 0.5f, 0.5f, 0.5f, 1.0f }, dxCore.GetDevice(), dxCore.GetCommandList(), defaultMetalness->Resource, defaultMetalness->UploadHeap);
 
-	auto defaultRough = std::make_unique<Texture>();
+	auto defaultRough = make_unique<Texture>();
 	defaultRough->Name = "defaultRough";
 	BuildColorTexture({ 0.5f, 0.5f, 0.5f, 1.0f }, dxCore.GetDevice(), dxCore.GetCommandList(), defaultRough->Resource, defaultRough->UploadHeap);
 
-	auto defaultAO = std::make_unique<Texture>();
+	auto defaultAO = make_unique<Texture>();
 	defaultAO->Name = "defaultAO";
 	BuildColorTexture({ 1.0f, 1.0f, 1.0f, 1.0f }, dxCore.GetDevice(), dxCore.GetCommandList(), defaultAO->Resource, defaultAO->UploadHeap);
 
@@ -310,12 +313,12 @@ void SpeckApp::BuildDefaultTextures()
 	mDefaultTextures[5] = defaultAO->Resource.Get();
 
 	// Now save to map
-	mTextures[defaultAlbedo->Name] = std::move(defaultAlbedo);
-	mTextures[defaultNormal->Name] = std::move(defaultNormal);
-	mTextures[defaultHeight->Name] = std::move(defaultHeight);
-	mTextures[defaultMetalness->Name] = std::move(defaultMetalness);
-	mTextures[defaultRough->Name] = std::move(defaultRough);
-	mTextures[defaultAO->Name] = std::move(defaultAO);
+	mTextures[defaultAlbedo->Name] = move(defaultAlbedo);
+	mTextures[defaultNormal->Name] = move(defaultNormal);
+	mTextures[defaultHeight->Name] = move(defaultHeight);
+	mTextures[defaultMetalness->Name] = move(defaultMetalness);
+	mTextures[defaultRough->Name] = move(defaultRough);
+	mTextures[defaultAO->Name] = move(defaultAO);
 }
 
 void SpeckApp::BuildDefaultMaterials()
@@ -367,6 +370,10 @@ void SpeckApp::BuildDefaultMaterials()
 	texMat.DiffuseAlbedo = XMFLOAT4(0.46f, 0.49f, 0.46f, 1.0f);
 	texMat.MatCBIndex = mLatestMatCBIndex++;
 	mMaterials["speckStone"] = make_unique<PBRMaterial>(texMat);
+
+	texMat.DiffuseAlbedo = XMFLOAT4(0.9f, 0.2f, 0.2f, 1.0f);
+	texMat.MatCBIndex = mLatestMatCBIndex++;
+	mMaterials["speckJoint"] = make_unique<PBRMaterial>(texMat);
 }
 
 array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers()
@@ -436,18 +443,19 @@ void SpeckApp::BuildRootSignatures()
 	CD3DX12_DESCRIPTOR_RANGE texTable;
 	texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, MATERIAL_TEXTURES_COUNT, 0, 0);
 	// Root parameter can be a table, root descriptor or root constants.
-	CD3DX12_ROOT_PARAMETER slotRootParameter[5];
+	CD3DX12_ROOT_PARAMETER slotRootParameter[(UINT)MainPassRootParameter::Count];
 	// Perfomance TIP: Order from most frequent to least frequent.
-	slotRootParameter[0].InitAsConstantBufferView(0);											// root descriptor (for single objects)
-	slotRootParameter[1].InitAsShaderResourceView(0, 1);										// root descriptor (for object instances)
-	slotRootParameter[2].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);	// descriptor table (for textures)
-	slotRootParameter[3].InitAsShaderResourceView(1, 1);										// root descriptor (for materials)
-	slotRootParameter[4].InitAsConstantBufferView(1);											// root descriptor (for pass buffer)
+	slotRootParameter[(UINT)MainPassRootParameter::StaticConstantBuffer].InitAsConstantBufferView(0);											// root descriptor (for static objects)
+	slotRootParameter[(UINT)MainPassRootParameter::InstancesConstantBuffer].InitAsShaderResourceView(0, 1);										// root descriptor (for object instances)
+	slotRootParameter[(UINT)MainPassRootParameter::TexturesDescriptorTable].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);	// descriptor table (for textures)
+	slotRootParameter[(UINT)MainPassRootParameter::MaterialsRootDescriptor].InitAsShaderResourceView(1, 1);										// root descriptor (for materials)
+	slotRootParameter[(UINT)MainPassRootParameter::RigidBodyRootDescriptor].InitAsShaderResourceView(2, 1);										// root descriptor (for rigid bodies)
+	slotRootParameter[(UINT)MainPassRootParameter::PassRootDescriptor].InitAsConstantBufferView(1);												// root descriptor (for pass buffer)
 
 	auto staticSamplers = GetStaticSamplers();
 
 	// A root signature is an array of root parameters.
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(5, slotRootParameter, (UINT)staticSamplers.size(), staticSamplers.data(),
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc((UINT)MainPassRootParameter::Count, slotRootParameter, (UINT)staticSamplers.size(), staticSamplers.data(),
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	// create a root signature with a single slot which points to a descriptor range consisting of a single constant buffer
@@ -474,10 +482,10 @@ void SpeckApp::BuildRootSignatures()
 	CD3DX12_DESCRIPTOR_RANGE texTablePostProcess;
 	texTablePostProcess.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, DEFERRED_RENDER_TARGETS_COUNT, 0, 0);
 	// Root parameter can be a table, root descriptor or root constants.
-	CD3DX12_ROOT_PARAMETER slotRootParameterPostProcess[2];
+	CD3DX12_ROOT_PARAMETER slotRootParameterPostProcess[(UINT)PostProcessRootParameter::Count];
 	// Perfomance TIP: Order from most frequent to least frequent.
-	slotRootParameterPostProcess[0].InitAsConstants(4, 0, 0);														// root constant (for single objects)
-	slotRootParameterPostProcess[1].InitAsDescriptorTable(1, &texTablePostProcess, D3D12_SHADER_VISIBILITY_PIXEL);	// descriptor table (for textures)
+	slotRootParameterPostProcess[(UINT)PostProcessRootParameter::SettingsRootConstant].InitAsConstants(4, 0, 0);															// root constant (for settings)
+	slotRootParameterPostProcess[(UINT)PostProcessRootParameter::TexturesDescriptorTable].InitAsDescriptorTable(1, &texTablePostProcess, D3D12_SHADER_VISIBILITY_PIXEL);	// descriptor table (for textures)
 
 	const CD3DX12_STATIC_SAMPLER_DESC pointClamp(
 		0, // shaderRegister
@@ -487,7 +495,7 @@ void SpeckApp::BuildRootSignatures()
 		D3D12_TEXTURE_ADDRESS_MODE_CLAMP); // addressW
 
 	// A root signature is an array of root parameters.
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDescPostProcess(2, slotRootParameterPostProcess, 1, &pointClamp,
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDescPostProcess((UINT)PostProcessRootParameter::Count, slotRootParameterPostProcess, 1, &pointClamp,
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	// create a root signature with a single slot which points to a descriptor range consisting of a single constant buffer
@@ -529,9 +537,9 @@ void SpeckApp::BuildScreenGeometry()
 	}
 
 	const UINT vbByteSize = (UINT)vertices.size() * sizeof(ScreenQuadVertex);
-	const UINT ibByteSize = (UINT)md.Indices32.size() * sizeof(std::int32_t);
+	const UINT ibByteSize = (UINT)md.Indices32.size() * sizeof(int32_t);
 
-	auto geo = std::make_unique<MeshGeometry>();
+	auto geo = make_unique<MeshGeometry>();
 
 	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
 	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
@@ -556,7 +564,7 @@ void SpeckApp::BuildScreenGeometry()
 	submesh.BaseVertexLocation = 0;
 
 	geo->DrawArgs["quad"] = submesh;
-	mGeometries["screenGeo"] = std::move(geo);
+	mGeometries["screenGeo"] = move(geo);
 }
 
 void SpeckApp::BuildSpeckGeometry()
@@ -583,9 +591,9 @@ void SpeckApp::BuildSpeckGeometry()
 	}
 
 	const UINT vbByteSize = (UINT)vertices.size() * sizeof(SpeckVertex);
-	const UINT ibByteSize = (UINT)md.Indices32.size() * sizeof(std::int32_t);
+	const UINT ibByteSize = (UINT)md.Indices32.size() * sizeof(int32_t);
 
-	auto geo = std::make_unique<MeshGeometry>();
+	auto geo = make_unique<MeshGeometry>();
 
 	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
 	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
@@ -611,7 +619,7 @@ void SpeckApp::BuildSpeckGeometry()
 	submesh.Bounds = bounds;
 
 	geo->DrawArgs["speck"] = submesh;
-	mGeometries["speckGeo"] = std::move(geo);
+	mGeometries["speckGeo"] = move(geo);
 }
 
 void SpeckApp::BuildRegularGeometry()
@@ -678,7 +686,7 @@ void SpeckApp::BuildRegularGeometry()
 		sphere.Vertices.size() +
 		cylinder.Vertices.size();
 
-	std::vector<GeometryGenerator::Vertex> vertices(totalVertexCount);
+	vector<GeometryGenerator::Vertex> vertices(totalVertexCount);
 	UINT k = 0;
 	for (size_t i = 0; i < box.Vertices.size(); ++i, ++k)
 	{
@@ -697,16 +705,16 @@ void SpeckApp::BuildRegularGeometry()
 		vertices[k] = cylinder.Vertices[i];
 	}
 
-	std::vector<std::uint16_t> indices;
-	indices.insert(indices.end(), std::begin(box.GetIndices16()), std::end(box.GetIndices16()));
-	indices.insert(indices.end(), std::begin(grid.GetIndices16()), std::end(grid.GetIndices16()));
-	indices.insert(indices.end(), std::begin(sphere.GetIndices16()), std::end(sphere.GetIndices16()));
-	indices.insert(indices.end(), std::begin(cylinder.GetIndices16()), std::end(cylinder.GetIndices16()));
+	vector<uint16_t> indices;
+	indices.insert(indices.end(), begin(box.GetIndices16()), end(box.GetIndices16()));
+	indices.insert(indices.end(), begin(grid.GetIndices16()), end(grid.GetIndices16()));
+	indices.insert(indices.end(), begin(sphere.GetIndices16()), end(sphere.GetIndices16()));
+	indices.insert(indices.end(), begin(cylinder.GetIndices16()), end(cylinder.GetIndices16()));
 
 	const UINT vbByteSize = (UINT)vertices.size() * sizeof(GeometryGenerator::Vertex);
-	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
+	const UINT ibByteSize = (UINT)indices.size() * sizeof(uint16_t);
 
-	auto geo = std::make_unique<MeshGeometry>();
+	auto geo = make_unique<MeshGeometry>();
 
 	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
 	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
@@ -729,7 +737,7 @@ void SpeckApp::BuildRegularGeometry()
 	geo->DrawArgs["grid"] = gridSubmesh;
 	geo->DrawArgs["sphere"] = sphereSubmesh;
 	geo->DrawArgs["cylinder"] = cylinderSubmesh;
-	mGeometries["shapeGeo"] = std::move(geo);
+	mGeometries["shapeGeo"] = move(geo);
 }
 
 void SpeckApp::BuildPSOs()
@@ -771,7 +779,7 @@ void SpeckApp::BuildPSOs()
 	// PSO for screen quad.
 	//
 	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	std::vector<D3D12_INPUT_ELEMENT_DESC> inputLayout =
+	vector<D3D12_INPUT_ELEMENT_DESC> inputLayout =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -833,7 +841,7 @@ void SpeckApp::BuildPSOs()
 	ThrowIfFailed(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&sWorld.mPSOGroups["instanced"]->mPSO)));
 
 	//
-	// PSO for single objects.
+	// PSO for static mesh objects.
 	//
 	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
 	inputLayout =
@@ -866,7 +874,7 @@ void SpeckApp::BuildPSOs()
 	psoDesc.SampleDesc.Count = dxCore.Get4xMsaaState() ? 4 : 1;
 	psoDesc.SampleDesc.Quality = dxCore.Get4xMsaaState() ? (dxCore.Get4xMsaaQuality() - 1) : 0;
 	psoDesc.DSVFormat = dxCore.GetDepthStencilFormat();
-	ThrowIfFailed(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&sWorld.mPSOGroups["single"]->mPSO)));
+	ThrowIfFailed(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&sWorld.mPSOGroups["static"]->mPSO)));
 }
 
 void SpeckApp::BuildFrameResources()
@@ -875,7 +883,7 @@ void SpeckApp::BuildFrameResources()
 	auto &sWorld = static_cast<SpeckWorld &>(GetWorld());
 	for (int i = 0; i < NUM_FRAME_RESOURCES; ++i)
 	{
-		mFrameResources.push_back(make_unique<FrameResource>(dxCore.GetDevice(), 1, sWorld.mMaxSingleObjects, mMaxNumberOfMaterials));
+		mFrameResources.push_back(make_unique<FrameResource>(dxCore.GetDevice(), 1, sWorld.mMaxRenderItemsCount, mMaxNumberOfMaterials));
 	}
 }
 

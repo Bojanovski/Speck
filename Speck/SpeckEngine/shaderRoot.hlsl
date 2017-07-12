@@ -4,18 +4,21 @@
 
 #include "cpuGpuDefines.txt"
 #include "LightingUtil.hlsl"
+#include "MathHelper.hlsl"
 #include "sharedStructures.hlsl"
 
-// Object data that varies per object.
-cbuffer cbObj : register(b0)
+// Render item data that varies per item.
+cbuffer cbRenderItem : register(b0)
 {
-	float4x4 gWorld;
-	float4x4 gInvTransposeWorld;
+	// Local or global, depending on the type of the render item.
+	float4x4 gTransform;
+	// Local or global, depending on the type of the render item.
+	float4x4 gInvTransposeTransform;
 	float4x4 gTexTransform;
+
+	uint gRenderItemType;
 	uint gMaterialIndex;
-	uint gObjPad0;
-	uint gObjPad1;
-	uint gObjPad2;
+	uint gParam[RENDER_ITEM_SPECIAL_PARAM_N];
 };
 
 // Constant data that varies per pass.
@@ -50,8 +53,12 @@ Texture2D gTextureMaps[MATERIAL_TEXTURES_COUNT] : register(t0);
 
 // Put in space1, so the texture array does not overlap with these resources.  
 // The texture array will occupy registers t0, t1, ..., t6 in space0. 
-StructuredBuffer<InstanceData> gInstanceData : register(t0, space1);
-StructuredBuffer<MaterialData> gMaterialData : register(t1, space1);
+// Data for instances
+StructuredBuffer<InstanceData> gInstanceData	: register(t0, space1);
+// Materials data
+StructuredBuffer<MaterialData> gMaterialData	: register(t1, space1);
+// Rigid body data
+StructuredBuffer<RigidBodyData> gRigidBodies	: register(t2, space1);
 
 // Samplers
 SamplerState gsamPointWrap        : register(s0);

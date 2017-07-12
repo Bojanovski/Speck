@@ -1,8 +1,11 @@
 
+#ifndef MAIN_STATE_H
+#define MAIN_STATE_H
 
 #include <SpeckEngineDefinitions.h>
 #include <App.h>
 #include <FPCameraController.h>
+#include "HumanoidSkeleton.h"
 
 class MainState : public Speck::AppState
 {
@@ -21,4 +24,9 @@ private:
 
 private:
 	Speck::FPCameraController mCC;
+
+	std::unique_ptr<HumanoidSkeleton> mHumanoidSkeleton;
+
 };
+
+#endif

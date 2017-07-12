@@ -67,7 +67,8 @@ namespace Speck
 	class App;
 	class World;
 	class EngineCore;
-	DLL_EXPORT extern void CreateSpeckApp(HINSTANCE hInstance, UINT maxNumberOfMaterials, UINT maxInstancedObject, UINT maxSingleObjects, std::unique_ptr<EngineCore> *ec, std::unique_ptr<World> *world, std::unique_ptr<App> *app);
+	DLL_EXPORT extern void CreateSpeckApp(HINSTANCE hInstance, float speckRadius, UINT maxNumberOfMaterials, UINT maxRenderItemsCount,
+		std::unique_ptr<EngineCore> *ec, std::unique_ptr<World> *world, std::unique_ptr<App> *app);
 }
 
 #endif

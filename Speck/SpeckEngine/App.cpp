@@ -24,6 +24,16 @@ App const &AppState::GetApp() const
 	return  (App const &)mOwner->GetApp();
 }
 
+World &AppState::GetWorld()
+{
+	return (World &)mOwner->GetApp().GetWorld();
+}
+
+World const &AppState::GetWorld() const
+{
+	return (World const &)mOwner->GetApp().GetWorld();
+}
+
 EngineCore &AppState::GetEngineCore()
 {
 	return  (EngineCore &)mOwner->GetEngineCore();
@@ -115,7 +125,7 @@ bool App::Initialize()
 	return true;
 }
 
-int App::ExecuteCommand(const Command &command)
+int App::ExecuteCommand(const AppCommand &command, CommandResult *result)
 {
-	return command.Execute(this, 0);
+	return command.Execute(this, result);
 }

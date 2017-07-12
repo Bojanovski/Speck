@@ -1,117 +1,6 @@
 
 #include "specksCS_Root.hlsl"
 
-// Safe normalization function.
-// https://msdn.microsoft.com/en-us/library/windows/desktop/bb509630(v=vs.85).aspx
-float3 NormalizeSafe(float3 vec)
-{
-	float len = length(vec);
-	if (len == 0.0f)
-	{
-		return float3(0.0f, 0.0f, 0.0f);
-	}
-	else
-	{
-		return vec / len;
-	}
-}
-
-float2 NormalizeSafe(float2 vec)
-{
-	float len = length(vec);
-	if (len == 0.0f)
-	{
-		return float2(0.0f, 0.0f);
-	}
-	else
-	{
-		return vec / len;
-	}
-}
-
-float3x3 GetOuterProduct(float3 a, float3 b)
-{
-	float3x3 ret;
-	// first row
-	ret._m00 = a.x * b.x;
-	ret._m01 = a.x * b.y;
-	ret._m02 = a.x * b.z;
-	// second row
-	ret._m10 = a.y * b.x;
-	ret._m11 = a.y * b.y;
-	ret._m12 = a.y * b.z;
-	// third row
-	ret._m20 = a.z * b.x;
-	ret._m21 = a.z * b.y;
-	ret._m22 = a.z * b.z;
-	return ret;
-}
-
-float2x2 GetOuterProduct(float2 a, float2 b)
-{
-	float2x2 ret;
-	// first row
-	ret._m00 = a.x * b.x;
-	ret._m01 = a.x * b.y;
-	// second row
-	ret._m10 = a.y * b.x;
-	ret._m11 = a.y * b.y;
-	return ret;
-}
-
-float3x3 Identity3x3()
-{
-	float3x3 ret;
-	ret[0] = float3(1.0f, 0.0f, 0.0f);
-	ret[1] = float3(0.0f, 1.0f, 0.0f);
-	ret[2] = float3(0.0f, 0.0f, 1.0f);
-	return ret;
-}
-
-float2x2 Identity2x2()
-{
-	float2x2 ret;
-	ret[0] = float2(1.0f, 0.0f);
-	ret[1] = float2(0.0f, 1.0f);
-	return ret;
-}
-
-float3x3 Inverse(float3x3 M)
-{
-	// From https://en.wikipedia.org/wiki/Invertible_matrix#Inversion_of_3_.C3.97_3_matrices
-	float a = M._m00;
-	float b = M._m01;
-	float c = M._m02;
-
-	float d = M._m10;
-	float e = M._m11;
-	float f = M._m12;
-
-	float g = M._m20;
-	float h = M._m21;
-	float i = M._m22;
-
-	float A = (e*i - f*h);
-	float D = -(b*i - c*h);
-	float G = (b*f - c*e);
-
-	float B = -(d*i - f*g);
-	float E = (a*i - c*g);
-	float H = -(a*f - c*d);
-
-	float C = (d*h - e*g);
-	float F = -(a*h - b*g);
-	float I = (a*e - b*d);
-
-	float detM = a*A + b*B + c*C;
-	float invDetM = 1.0f / detM;
-	float3x3 ret;
-	ret[0] = invDetM * float3(A, D, G);
-	ret[1] = invDetM * float3(B, E, H);
-	ret[2] = invDetM * float3(C, F, I);
-	return ret;
-}
-
 void QR_Decomposition(in float3x3 A, out float3x3 Q, out float3x3 QT)
 {
 	// https://en.wikipedia.org/wiki/QR_decomposition
@@ -161,13 +50,13 @@ void GetEigendecomposition(in float3x3 A, in const uint iterations, out float3 e
 	float3x3 QTk;
 	float3x3 Rk;
 	float3x3 Ak = A;
-	[unroll(iterations)]
+	//[unroll(iterations)]
 	for (uint k = 0; k < iterations; k++)
 	{
 		QR_Decomposition(Ak, Qk, QTk);
 		//Qk = Identity3x3();
 		//QTk = Identity3x3();
-		eigenVectors = mul(eigenVectors, Qk);
+		eigenVectors = mul(eigenVectors, Qk); // is orthogonal
 		Ak = mul(mul(QTk, Ak), Qk);
 	}
 
@@ -180,22 +69,20 @@ float3x3 Get_Q_from_QS_decomposition(float3x3 A)
 
 	float3 eigVal;
 	float3x3 eigVec;
-	GetEigendecomposition(ATA, 100, eigVal, eigVec);
+	GetEigendecomposition(ATA, QR_ALGORITHM_ITERATION_COUNT, eigVal, eigVec);
 
-	float3x3 eigVecInv = Inverse(eigVec);
-	float3x3 lambdaSqrt = Identity3x3();
-	lambdaSqrt._m00 = sqrt(eigVal[0]);
-	lambdaSqrt._m11 = sqrt(eigVal[1]);
-	lambdaSqrt._m22 = sqrt(eigVal[2]);
-
-	float3x3 S = mul(mul(eigVec, lambdaSqrt), eigVecInv);
-	float3x3 SInv = Inverse(S);
+	float3x3 eigVecInv = transpose(eigVec);
+	float3x3 lambdaSqrtInv = Identity3x3();
+	lambdaSqrtInv._m00 = 1.0f / sqrt(eigVal[0]);
+	lambdaSqrtInv._m11 = 1.0f / sqrt(eigVal[1]);
+	lambdaSqrtInv._m22 = 1.0f / sqrt(eigVal[2]);
+	float3x3 SInv = mul(mul(eigVec, lambdaSqrtInv), eigVecInv);
 	float3x3 Q = mul(A, SInv);
 	return Q;
 }
 
 // This phase is repeated so that full parallel reduction can be performed.
-// First iteration calculates the A matrix of the speck and the last saves the world transform to the rigid body.
+// This iteration calculates the A matrix of the speck and the last saves the world transform to the rigid body.
 [numthreads(SPECK_RIGID_BODY_LINKS_CS_N_THREADS, 1, 1)]
 void main(int3 threadGroupID : SV_GroupID, int3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -204,6 +91,7 @@ void main(int3 threadGroupID : SV_GroupID, int3 dispatchThreadID : SV_DispatchTh
 		return; // early exit
 
 	SpeckRigidBodyLink thisLink = gSpeckRigidBodyLinks[linkIndex];
+	RigidBodyUploadData rbUploadData = gRigidBodyUploader[thisLink.rbIndex];
 	SpeckData thisLinkSpeck = gSpecks[thisLink.speckIndex];
 	uint posInBlock = linkIndex - thisLink.speckLinksBlockStart;
 	// Not all 'nodes' calculate the sum, only some of them.
@@ -245,7 +133,11 @@ void main(int3 threadGroupID : SV_GroupID, int3 dispatchThreadID : SV_DispatchTh
 			world[1] = float4(Q[0][1], Q[1][1], Q[2][1], 0.0f);
 			world[2] = float4(Q[0][2], Q[1][2], Q[2][2], 0.0f);
 			world[3] = float4(c, 1.0f);
-			gRigidBodies[thisLink.rbIndex].world = world;
+
+			if (rbUploadData.movementMode == RIGID_BODY_MOVEMENT_MODE_CPU)
+				gRigidBodies[thisLink.rbIndex].world = rbUploadData.world;
+			else // if (rbUploadData.movementMode == RIGID_BODY_MOVEMENT_MODE_GPU)
+				gRigidBodies[thisLink.rbIndex].world = world;
 		}
 	}
 

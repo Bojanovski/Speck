@@ -76,8 +76,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(SolutionDir)SpeckEngine;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)SpeckEngine;$(SolutionDir)Libraries/FBX/include;$(IncludePath)</IncludePath>
     <OutDir>$(SolutionDir)Build\</OutDir>
+    <LibraryPath>$(SolutionDir)Libraries/FBX/lib/vs2015/x64/debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -86,8 +87,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir)SpeckEngine;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)SpeckEngine;$(SolutionDir)Libraries/FBX/include;$(IncludePath)</IncludePath>
     <OutDir>$(SolutionDir)Build\</OutDir>
+    <LibraryPath>$(SolutionDir)Libraries/FBX/lib/vs2015/x64/release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -111,11 +113,17 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>libfbxsdk-md.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -151,7 +159,12 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>libfbxsdk-md.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ProjectReference Include="..\SpeckEngine\SpeckEngine.vcxproj">
@@ -159,11 +172,15 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="JointTestingState.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="MainState.cpp" />
+    <ClCompile Include="HumanoidSkeleton.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="JointTestingState.h" />
     <ClInclude Include="MainState.h" />
+    <ClInclude Include="HumanoidSkeleton.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

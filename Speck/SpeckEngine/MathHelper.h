@@ -95,8 +95,40 @@ namespace Speck
 		static DirectX::XMVECTOR RandUnitVec3();
 		static DirectX::XMVECTOR RandHemisphereUnitVec3(DirectX::XMVECTOR n);
 
-		static DirectX::XMMATRIX GetOuterProduct3X3(DirectX::FXMVECTOR a, DirectX::FXMVECTOR b);
-		static DirectX::XMMATRIX GetOuterProduct2X2(DirectX::FXMVECTOR a, DirectX::FXMVECTOR b);
+		inline static DirectX::XMMATRIX GetOuterProduct3X3(DirectX::FXMVECTOR a, DirectX::FXMVECTOR b)
+		{
+			DirectX::XMMATRIX ret;
+			// first row
+			ret.r[0].m128_f32[0] = a.m128_f32[0] * b.m128_f32[0];
+			ret.r[0].m128_f32[1] = a.m128_f32[0] * b.m128_f32[1];
+			ret.r[0].m128_f32[2] = a.m128_f32[0] * b.m128_f32[2];
+
+			// second row
+			ret.r[1].m128_f32[0] = a.m128_f32[1] * b.m128_f32[0];
+			ret.r[1].m128_f32[1] = a.m128_f32[1] * b.m128_f32[1];
+			ret.r[1].m128_f32[2] = a.m128_f32[1] * b.m128_f32[2];
+
+			// third row
+			ret.r[2].m128_f32[0] = a.m128_f32[2] * b.m128_f32[0];
+			ret.r[2].m128_f32[1] = a.m128_f32[2] * b.m128_f32[1];
+			ret.r[2].m128_f32[2] = a.m128_f32[2] * b.m128_f32[2];
+
+			return ret;
+		}
+		
+		inline static DirectX::XMMATRIX GetOuterProduct2X2(DirectX::FXMVECTOR a, DirectX::FXMVECTOR b)
+		{
+			DirectX::XMMATRIX ret;
+			// first row
+			ret.r[0].m128_f32[0] = a.m128_f32[0] * b.m128_f32[0];
+			ret.r[0].m128_f32[1] = a.m128_f32[0] * b.m128_f32[1];
+
+			// second row
+			ret.r[1].m128_f32[0] = a.m128_f32[1] * b.m128_f32[0];
+			ret.r[1].m128_f32[1] = a.m128_f32[1] * b.m128_f32[1];
+
+			return ret;
+		}
 		
 		inline static DirectX::XMMATRIX XMMatrixMultiply3X3(DirectX::FXMMATRIX M1, DirectX::CXMMATRIX M2)
 		{
@@ -114,10 +146,12 @@ namespace Speck
 			m2.r[3] = DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
 			return DirectX::XMMatrixMultiply(m1, m2);
 		}
+
 		inline static float GetTrace3X3(DirectX::CXMMATRIX A)
 		{
 			return A.r[0].m128_f32[0] + A.r[1].m128_f32[1] + A.r[2].m128_f32[2];
 		}
+
 		inline static float GetDeterminant3X3(DirectX::CXMMATRIX A)
 		{
 			// From https://en.wikipedia.org/wiki/Determinant
@@ -133,12 +167,48 @@ namespace Speck
 			return a*e*i + b*f*g + c*d*h - c*e*g - b*d*i - a*f*h;
 		}
 
+		inline static DirectX::XMMATRIX GetInverse3X3(DirectX::CXMMATRIX M)
+		{
+			// From https://en.wikipedia.org/wiki/Invertible_matrix#Inversion_of_3_.C3.97_3_matrices
+			float a = M.r[0].m128_f32[0];
+			float b = M.r[0].m128_f32[1];
+			float c = M.r[0].m128_f32[2];
+
+			float d = M.r[1].m128_f32[0];
+			float e = M.r[1].m128_f32[1];
+			float f = M.r[1].m128_f32[2];
+
+			float g = M.r[2].m128_f32[0];
+			float h = M.r[2].m128_f32[1];
+			float i = M.r[2].m128_f32[2];
+
+			float A = (e*i - f*h);
+			float D = -(b*i - c*h);
+			float G = (b*f - c*e);
+
+			float B = -(d*i - f*g);
+			float E = (a*i - c*g);
+			float H = -(a*f - c*d);
+
+			float C = (d*h - e*g);
+			float F = -(a*h - b*g);
+			float I = (a*e - b*d);
+
+			float detM = a*A + b*B + c*C;
+			float invDetM = 1.0f / detM;
+			DirectX::XMMATRIX ret;
+			ret.r[0] = DirectX::operator*(invDetM, DirectX::XMVectorSet(A, D, G, 0.0f));
+			ret.r[1] = DirectX::operator*(invDetM, DirectX::XMVectorSet(B, E, H, 0.0f));
+			ret.r[2] = DirectX::operator*(invDetM, DirectX::XMVectorSet(C, F, I, 0.0f));
+			ret.r[3] = DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+			return ret;
+		}
+
 		static void QR_Decomposition3X3(DirectX::CXMMATRIX A, DirectX::XMMATRIX *Q, DirectX::XMMATRIX *QT, DirectX::XMMATRIX *R);
 		// QR Algorithm, based on iterative QR decomposition.
 		// Eigenvectors are proper only when matrix A is symmetric.
 		static void GetEigendecompositionSymmetric3X3(DirectX::CXMMATRIX A, UINT iterations, DirectX::XMVECTOR *eigenValues, DirectX::XMMATRIX *eigenVectors);
 		static DirectX::XMVECTOR GetEigenvaluesSymmetric3X3(DirectX::CXMMATRIX A);
-		static DirectX::XMMATRIX GetInverse3X3(DirectX::CXMMATRIX M);
 
 		static const float Infinity;
 		static const float Pi;
@@ -148,6 +218,36 @@ namespace Speck
 			return min(timeStep, 1.0f / 60.0f);
 		}
 	};
+
+	inline bool operator==(const DirectX::XMFLOAT2 &left, const DirectX::XMFLOAT2 &right)
+	{
+		if (left.x == right.x &&
+			left.y == right.y)
+			return true;
+		else
+			return false;
+	}
+
+	inline bool operator==(const DirectX::XMFLOAT3 &left, const DirectX::XMFLOAT3 &right)
+	{
+		if (left.x == right.x &&
+			left.y == right.y &&
+			left.z == right.z)
+			return true;
+		else
+			return false;
+	}
+
+	inline bool operator==(const DirectX::XMFLOAT4 &left, const DirectX::XMFLOAT4 &right)
+	{
+		if (left.x == right.x &&
+			left.y == right.y &&
+			left.z == right.z &&
+			left.w == right.w)
+			return true;
+		else
+			return false;
+	}
 }
 
 #endif

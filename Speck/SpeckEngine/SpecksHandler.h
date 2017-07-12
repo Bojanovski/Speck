@@ -14,28 +14,51 @@ namespace Speck
 	class SpecksHandler : public EngineUser, public WorldUser
 	{
 	public:
-		SpecksHandler(EngineCore &ec, World &world, std::vector<std::unique_ptr<FrameResource>> *frameResources, UINT particleNum, UINT stabilizationIteraions, UINT solverIterations);
+		SpecksHandler(EngineCore &ec, World &world, std::vector<std::unique_ptr<FrameResource>> *frameResources, UINT stabilizationIteraions, UINT solverIterations, UINT substepsIterations);
 		~SpecksHandler();
 
 		// CPU related update
 		void UpdateCPU(FrameResource *currentFrameResource);
 		// GPU related update
 		void UpdateGPU();
+		// Invalidates buffer.
 		void InvalidateSpecksRenderBuffers(UINT startIndex);
+		// Invalidates buffer.
 		void InvalidateSpecksBuffers() { mSpecks.mNumFramesDirty = NUM_FRAME_RESOURCES; }
+		// Invalidates buffer.
 		void InvalidateStaticCollidersBuffers() { mStaticColliders.mNumFramesDirty = NUM_FRAME_RESOURCES; }
+		// Invalidates buffer.
 		void InvalidateExternalForcesBuffers() { mExternalForces.mNumFramesDirty = NUM_FRAME_RESOURCES; }
+		// Invalidates buffer.
 		void InvalidateRigidBodyLinksBuffers() { mSpeckRigidBodyLink.mNumFramesDirty = NUM_FRAME_RESOURCES; }
+		// Invalidates buffer.
+		void InvalidateRigidBodyUploaderBuffer() { mRigidBodyUploader.mNumFramesDirty = NUM_FRAME_RESOURCES; }
+		// Increments speck count and invalidates appropriate buffers.
 		void AddParticles(UINT num);
-		UINT GetSpecksBufferIndex() { return mSpecksRender.mBufferIndex; }
+		// Retrieves speck count.
+		UINT GetSpecksBufferIndex() const { return mSpecksRender.mBufferIndex; }
 		
+		// Buffers fetching interfaces
+		ID3D12Resource* GetRigidBodyBufferResource() const { return mRigidBodiesBuffer.first.Get(); }
+
+		float GetTimeMultiplier() const { return mTimeMultiplier; }
+		void SetTimeMultiplier(float timeMultiplier) { mTimeMultiplier = timeMultiplier; }
+		UINT GetStabilizationIteraions() const { return mStabilizationIteraions; }
+		void SetStabilizationIteraions(UINT stabilizationIteraions) { mStabilizationIteraions = stabilizationIteraions; }
+		UINT GetSolverIterations() const { return mSolverIterations; }
+		void SetSolverIterations(UINT solverIterations) { mSolverIterations = solverIterations; }
+		UINT GetSubstepsIterations() const { return mSubstepsIterations; }
+		void SetSubstepsIterations(UINT substepsIterations) { mSubstepsIterations = substepsIterations; }
+
 		static float GetSpeckRadius() { return mSpeckRadius; }
-		static void BuildStaticMembers(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList, float speckRadius);
+		static void SetSpeckRadius(float speckRadius);
+		static void BuildStaticMembers(ID3D12Device *device, ID3D12GraphicsCommandList *cmdList);
 		static void ReleaseStaticMembers();
 
 	private:
 		void BuildBuffers(std::vector<std::unique_ptr<FrameResource>> *frameResources);
 		void UpdateCSPhases();
+		void UpdateGPU_substep(float deltaTime);
 
 	private:
 		FrameResource *mPreviousFrameResource;
@@ -87,14 +110,18 @@ namespace Speck
 		// How many buckets (cells) will there be in the simulation.
 		UINT mHashTableSize;
 		// Used for stabilization pass (fixing initial values).
-		const UINT mStabilizationIteraions;
+		UINT mStabilizationIteraions;
 		// Used for main constraint resolution pass.
-		const UINT mSolverIterations;
+		UINT mSolverIterations;
+		// How many times whole update will be repeated in a single update call.
+		UINT mSubstepsIterations;
 		// Rate of successive over-relaxation (SOR).
 		const float mOmega;
 		// Time will be interpolated between frames to prevent sudden 
 		// changes in integration and hopping of the specks.
 		float mDeltaTime;
+		// Time multipliers will slow down or speed up the physics simulation.
+		float mTimeMultiplier;
 
 		// Buffers
 		struct BufferStruct
@@ -119,6 +146,7 @@ namespace Speck
 		BufferStruct mStaticColliderEdges;
 		BufferStruct mExternalForces;
 		BufferStruct mSpeckRigidBodyLink;
+		BufferStruct mRigidBodyUploader;
 	};
 }
 

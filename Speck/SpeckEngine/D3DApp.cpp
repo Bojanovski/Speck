@@ -46,7 +46,7 @@ static HANDLE self;
 		mApp = this;
 
 		// Members
-		GetEngineCore().mDefaultCamera->LookAt(XMFLOAT3(0.0f, 8.0f, -10.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f));
+		GetEngineCore().mDefaultCamera->LookAt(XMFLOAT3(0.5f, 10.0f, -10.0f), XMFLOAT3(0.5f, -2.0f, 2.0f), XMFLOAT3(0.0f, 1.0f, 0.0f));
 		CameraController defaultCC;
 		GetEngineCore().mDefaultCamera->Update(0.0f, &defaultCC);
 
@@ -282,7 +282,6 @@ static HANDLE self;
 
 	void D3DApp::Update(const Timer &t)
 	{
-		GetEngineCore().GetCamera().Update(t.DeltaTime(), &GetEngineCore().GetCameraController());
 		GetEngineCore().mInputHandler->Update(t.DeltaTime());
 		mAppStatesManager.Update(t.DeltaTime());
 	}

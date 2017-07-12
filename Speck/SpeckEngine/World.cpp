@@ -13,14 +13,24 @@ World::~World()
 {
 }
 
-void World::Update(App* app)
+void World::Initialize(App *app)
+{
+	mApp = app;
+}
+
+int World::ExecuteCommand(const WorldCommand & command, CommandResult *result)
+{
+	return command.Execute(mApp, result);
+}
+
+void World::Update()
 {
 }
 
-void World::PreDrawUpdate(App * app)
+void World::PreDrawUpdate()
 {
 }
 
-void World::Draw(App* app, UINT stage)
+void World::Draw(UINT stage)
 {
 }

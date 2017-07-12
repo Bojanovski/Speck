@@ -4,6 +4,7 @@
 
 #include "cpuGpuDefines.txt"
 #include "sharedStructures.hlsl"
+#include "MathHelper.hlsl"
 
 #define FLT_MAX								3.402823466e+38f
 #define COLLISION_DETECTION_MULTIPLIER		1.2f
@@ -166,12 +167,12 @@ struct SpeckRigidBodyLinkCache
 	float3x3 A;
 };
 
-struct RigidBodyData
+// Used for overwriting rigid body matrix calculated from simulation.
+struct RigidBodyUploadData
 {
+	uint movementMode;
 	// World transform of the rigid body.
 	float4x4 world;
-	// Center of mass of all specks in the rigid body.
-	float3 c;
 };
 
 // Input specks
@@ -188,6 +189,9 @@ StructuredBuffer<ExternalForceData> gExternalForces						: register(t4);
 
 // Rigid body - speck links.
 StructuredBuffer<SpeckRigidBodyLink> gSpeckRigidBodyLinks				: register(t5);
+
+// Rigid body uploader structures.
+StructuredBuffer<RigidBodyUploadData> gRigidBodyUploader				: register(t6);
 
 // Specks, physics buffer
 RWStructuredBuffer<SpeckData> gSpecks									: register(u1);
@@ -235,7 +239,7 @@ float GetDistanceFromPlane(float3 pos, float3 pointOnPlane, float3 planeNormal)
 float W_poly6(float r, float h)
 {
 	if (0.0f <= r && r <= h)
-		return 315.0f / (64.0f * PI * pow(h, 9.0f)) * pow(h*h - r*r, 3.0f);
+		return 315.0f / (64.0f * PI * pow(abs(h), 9.0f)) * pow(h*h - r*r, 3.0f);
 	else
 		return 0.0f;
 }
@@ -272,7 +276,7 @@ float W_viscosity(float r, float h)
 {
 	if (0.0f <= r && r <= h)
 		return 15.0f / (2.0f * PI * pow(h, 3.0f))
-		* (-pow(r, 3.0f) / (2.0f * pow(h, 3.0f)) + (r*r) / (h*h) + (h) / (2.0f*r) - 1.0f);
+		* (-pow(r, 3.0f) / (2.0f * pow(h, 3.0f)) + (r*r) / (h*h) + abs(h) / (2.0f*r) - 1.0f);
 	else
 		return 0.0f;
 }
@@ -283,12 +287,12 @@ float C_akinci(float r, float h)
 {
 	if (2.0f*r > h && r <= h)
 	{
-		return 32.0f / (PI * pow(h, 9.0f))
+		return 32.0f / (PI * pow(abs(h), 9.0f))
 			* (pow(h - r, 3.0f) * pow(r, 3.0f));
 	}
 	else if (r > 0.0f && 2.0f*r <= h)
 	{
-		return 32.0f / (PI * pow(h, 9.0f))
+		return 32.0f / (PI * pow(abs(h), 9.0f))
 			* (2.0f*pow(h - r, 3.0f) * pow(r, 3.0f) - pow(h, 6.0f)/64.0f);
 	}
 	else

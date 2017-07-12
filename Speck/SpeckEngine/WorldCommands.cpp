@@ -23,7 +23,29 @@ RandomGenerator gRndGen;
 int AddStaticColliderCommand::IDCounter = 0;
 int AddExternalForceCommand::IDCounter = 0;
 
-int CreatePSOGroup::Execute(void *ptIn, void *ptOut) const
+int GetWorldPropertiesCommand::Execute(void *ptIn, CommandResult *result) const
+{
+	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
+	SpeckWorld *sWorld = static_cast<SpeckWorld*>(&sApp->GetWorld());
+
+	if (!result)
+	{
+		LOG(L"Result object is not passed to the function.", ERROR);
+		return 1;
+	}
+
+	GetWorldPropertiesCommandResult *resPt = dynamic_cast<GetWorldPropertiesCommandResult *>(result);
+	if (!resPt)
+	{
+		LOG(L"Result object is not of the appropriate type.", ERROR);
+		return 1;
+	}
+
+	resPt->speckRadius = sWorld->GetSpecksHandler()->GetSpeckRadius();
+	return 0;
+}
+
+int CreatePSOGroupCommand::Execute(void *ptIn, CommandResult *result) const
 {
 	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
 	SpeckWorld *sWorld = static_cast<SpeckWorld*>(&sApp->GetWorld());
@@ -71,31 +93,89 @@ int CreatePSOGroup::Execute(void *ptIn, void *ptOut) const
 	return 0;
 }
 
-int AddRenderItemCommand::Execute(void *ptIn, void *ptOut) const
+int AddRenderItemCommand::Execute(void *ptIn, CommandResult *result) const
 {
 	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
 	SpeckWorld *sWorld = static_cast<SpeckWorld*>(&sApp->GetWorld());
 
-	auto rItem = std::make_unique<SingleRenderItem>();
-	rItem->mObjCBIndex = (UINT)sWorld->mPSOGroups[PSOGroupName]->mRItems.size(); // privremeno, treba isto handleat brisanje
+	// Determine the PSO group and create the render item.
+	vector<unique_ptr<RenderItem>> *psoGroupItems;
+	unique_ptr<RenderItem> rItem;
+	switch (type)
+	{
+		case Static:
+			rItem = make_unique<StaticRenderItem>();
+			psoGroupItems = (PSOGroupNameOverride.empty()) ? &sWorld->mPSOGroups["static"]->mRItems : &sWorld->mPSOGroups[PSOGroupNameOverride]->mRItems;
+			break;
+		case SpeckRigidBody:
+			rItem = make_unique<SpeckRigidBodyRenderItem>();
+			psoGroupItems = (PSOGroupNameOverride.empty()) ? &sWorld->mPSOGroups["static"]->mRItems : &sWorld->mPSOGroups[PSOGroupNameOverride]->mRItems;
+			break;
+		case SpeckSkeletalBody:
+			rItem = make_unique<SpeckSkeletalBodyRenderItem>();
+			psoGroupItems = (PSOGroupNameOverride.empty()) ? &sWorld->mPSOGroups["skeletalBody"]->mRItems : &sWorld->mPSOGroups[PSOGroupNameOverride]->mRItems;
+			break;
+		default:
+		{
+			LOG(L"Unrecognized type.", ERROR);
+			return 1;
+		}
+	}
+
+	// Fill in the render item with appropriate data.
 	rItem->mGeo = sApp->mGeometries[geometryName].get();
-	rItem->mMat = static_cast<PBRMaterial *>(sApp->mMaterials[materialName].get());
-	rItem->mTexTransform = texTransform;
+	switch (type)
+	{
+		case Static:
+		{
+			StaticRenderItem *pSRItem = static_cast<StaticRenderItem*>(rItem.get()); // cast it so that it is easier to manipulate
+			pSRItem->mRenderItemBufferIndex = sWorld->GetRenderItemFreeSpace();
+			pSRItem->mMat = static_cast<PBRMaterial *>(sApp->mMaterials[materialName].get());
+			pSRItem->mTexTransform = texTransform;
+			pSRItem->mBounds = &rItem->mGeo->DrawArgs[meshName].Bounds;
+			pSRItem->mW.mS = staticRenderItem.worldTransform.mS;
+			pSRItem->mW.mT = staticRenderItem.worldTransform.mT;
+			pSRItem->mW.mR = staticRenderItem.worldTransform.mR;
+			break;
+		}
+		case SpeckRigidBody:
+		{
+			SpeckRigidBodyRenderItem *pSRBRItem = static_cast<SpeckRigidBodyRenderItem*>(rItem.get()); // cast it so that it is easier to manipulate
+			pSRBRItem->mRenderItemBufferIndex = sWorld->GetRenderItemFreeSpace();
+			pSRBRItem->mMat = static_cast<PBRMaterial *>(sApp->mMaterials[materialName].get());
+			pSRBRItem->mTexTransform = texTransform;
+			pSRBRItem->mSpeckRigidBodyIndex = speckRigidBodyRenderItem.rigidBodyIndex;
+			pSRBRItem->mL.mS = staticRenderItem.worldTransform.mS;
+			pSRBRItem->mL.mT = staticRenderItem.worldTransform.mT;
+			pSRBRItem->mL.mR = staticRenderItem.worldTransform.mR;
+			break;
+		}
+		case SpeckSkeletalBody:
+		{
+			SpeckSkeletalBodyRenderItem *pSSBRItem = static_cast<SpeckSkeletalBodyRenderItem*>(rItem.get()); // cast it so that it is easier to manipulate
+			//pSSBRItem->mRenderItemBufferIndex = sWorld->GetRenderItemFreeSpace();
+			pSSBRItem->mMat = static_cast<PBRMaterial *>(sApp->mMaterials[materialName].get());
+			pSSBRItem->mTexTransform = texTransform;
+			// ...
+			break;
+		}
+		default:
+		{
+			LOG(L"Unrecognized type.", ERROR);
+			return 1;
+		}
+	}
 	rItem->mPrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	rItem->mIndexCount = rItem->mGeo->DrawArgs[meshName].IndexCount;
 	rItem->mStartIndexLocation = rItem->mGeo->DrawArgs[meshName].StartIndexLocation;
 	rItem->mBaseVertexLocation = rItem->mGeo->DrawArgs[meshName].BaseVertexLocation;
-	rItem->mBounds = &rItem->mGeo->DrawArgs[meshName].Bounds;
-	rItem->mT.mS = transform.mS;
-	rItem->mT.mT = transform.mT;
-	rItem->mT.mR = transform.mR;
 
 	// Add to the render group.
-	sWorld->mPSOGroups[PSOGroupName]->mRItems.push_back(std::move(rItem));
+	psoGroupItems->push_back(std::move(rItem));
 	return 0;
 }
 
-int AddEnviromentMapCommand::Execute(void * ptIn, void * ptOut) const
+int AddEnviromentMapCommand::Execute(void * ptIn, CommandResult *result) const
 {
 	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
 	SpeckWorld *sWorld = static_cast<SpeckWorld*>(&sApp->GetWorld());
@@ -134,7 +214,7 @@ int AddEnviromentMapCommand::Execute(void * ptIn, void * ptOut) const
 	// Bind all the materials used in this scene.  For structured buffers, we can bypass the heap and 
 	// set as a root descriptor.
 	auto matBuffer = sApp->GetCurrentFrameResource()->MaterialBuffer->Resource();
-	commandList->SetGraphicsRootShaderResourceView(3, matBuffer->GetGPUVirtualAddress());
+	commandList->SetGraphicsRootShaderResourceView((UINT)SpeckApp::MainPassRootParameter::MaterialsRootDescriptor, matBuffer->GetGPUVirtualAddress());
 
 	commandList->RSSetViewports(1, &cubePtr->Viewport());
 	commandList->RSSetScissorRects(1, &cubePtr->ScissorRect());
@@ -159,12 +239,12 @@ int AddEnviromentMapCommand::Execute(void * ptIn, void * ptOut) const
 		// the right view/proj matrix for this cube face.
 		auto passCB = cubePtr->CBResource(); // sApp->mCurrFrameResource->PassCB->Resource();
 		D3D12_GPU_VIRTUAL_ADDRESS passCBAddress = passCB->GetGPUVirtualAddress() + i*passCBByteSize;
-		commandList->SetGraphicsRootConstantBufferView(4, passCBAddress);
+		commandList->SetGraphicsRootConstantBufferView((UINT)SpeckApp::MainPassRootParameter::PassRootDescriptor, passCBAddress);
 
 		// Update the camera first.
 		Camera *prevCamPt = &sApp->GetEngineCore().GetCamera();
 		sApp->GetEngineCore().SetCamera(cubePtr->GetCamera(i));
-		sWorld->Draw(sApp, 0);
+		sWorld->Draw(0);
 		// Return the current camera pointer to the previous one.
 		sApp->GetEngineCore().SetCamera(prevCamPt);
 	}
@@ -185,9 +265,9 @@ int AddEnviromentMapCommand::Execute(void * ptIn, void * ptOut) const
 	return 0;
 }
 
-AddStaticColliderCommand::AddStaticColliderCommand() : Command(), ID(IDCounter++) {}
+AddStaticColliderCommand::AddStaticColliderCommand() : WorldCommand(), ID(IDCounter++) {}
 
-int AddStaticColliderCommand::Execute(void * ptIn, void * ptOut) const
+int AddStaticColliderCommand::Execute(void * ptIn, CommandResult *result) const
 {
 	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
 	SpeckWorld *sWorld = static_cast<SpeckWorld*>(&sApp->GetWorld());
@@ -195,7 +275,7 @@ int AddStaticColliderCommand::Execute(void * ptIn, void * ptOut) const
 	StaticCollider temp;
 	temp.mID = ID;
 	XMStoreFloat4x4(&temp.mWorld, transform.GetWorldMatrix());
-	XMStoreFloat4x4(&temp.mInvWorld, transform.GetInvWorldMatrix());
+	XMStoreFloat4x4(&temp.mInvWorld, transform.GetInverseWorldMatrix());
 	sWorld->mStaticColliders.push_back(temp);
 	sWorld->GetSpecksHandler()->InvalidateStaticCollidersBuffers();
 
@@ -204,9 +284,9 @@ int AddStaticColliderCommand::Execute(void * ptIn, void * ptOut) const
 	return 0;
 }
 
-AddExternalForceCommand::AddExternalForceCommand() : Command(), ID(IDCounter++) {}
+AddExternalForceCommand::AddExternalForceCommand() : WorldCommand(), ID(IDCounter++) {}
 
-int AddExternalForceCommand::Execute(void * ptIn, void * ptOut) const
+int AddExternalForceCommand::Execute(void * ptIn, CommandResult *result) const
 {
 	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
 	SpeckWorld *sWorld = static_cast<SpeckWorld*>(&sApp->GetWorld());
@@ -223,7 +303,7 @@ int AddExternalForceCommand::Execute(void * ptIn, void * ptOut) const
 	return 0;
 }
 
-int AddSpecksCommand::Execute(void * ptIn, void * ptOut) const
+int AddSpecksCommand::Execute(void * ptIn, CommandResult *result) const
 {
 	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
 	SpeckWorld *sWorld = static_cast<SpeckWorld*>(&sApp->GetWorld());
@@ -247,6 +327,12 @@ int AddSpecksCommand::Execute(void * ptIn, void * ptOut) const
 			code = SPECK_CODE_RIGID_BODY;
 			short rigidBodyCode = gRndGen.GetInt(0, SHRT_MAX);
 			code |= rigidBodyCode;
+		}
+		break;
+		case RigidBodyJoint:
+		{
+			materialName = "speckJoint";
+			code = SPECK_CODE_RIGID_BODY;
 		}
 		break;
 		case Fluid:
@@ -309,15 +395,53 @@ int AddSpecksCommand::Execute(void * ptIn, void * ptOut) const
 				tempS.mParam[2] = gradientF.z;
 			}
 			break;
+			case RigidBodyJoint:
+			{
+				// Calculate SDF gradient
+				XMVECTOR gradient1 = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f); // used for calculating the actual gradient
+				XMVECTOR gradient2 = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f); // used as an indicator of the boundary specks
+				XMVECTOR pos = XMLoadFloat3(&newSpecks[i].position);
+				float maxDist = sWorld->GetSpecksHandler()->GetSpeckRadius() * 2.0f * 1.2f;
+				float maxDistSq = maxDist*maxDist;
+				for (UINT j = 0; j < (UINT)newSpecks.size(); ++j)
+				{
+					if (i == j) continue;
+					XMVECTOR neighbourPos = XMLoadFloat3(&newSpecks[j].position);
+					XMVECTOR r = pos - neighbourPos;
+					float lenSq = XMVectorGetX(XMVector3LengthSq(r));
+					float lenPow = powf(lenSq, 10.0f);
+					float invLenPow = 1.0f / lenPow;
+
+					gradient1 += r * invLenPow;
+					if (lenSq < maxDistSq)
+					{
+						gradient2 += r;
+					}
+				}
+				gradient1 = XMVector3Normalize(gradient1);
+				float grad2Len = XMVectorGetX(XMVector3LengthEst(gradient2));
+				float epsilon = 0.001f;
+				if (grad2Len > epsilon)
+				{
+					gradient1 *= 2.0f; // indication that this is a boundary speck
+				}
+				XMFLOAT3 gradientF;
+				XMStoreFloat3(&gradientF, gradient1);
+				tempS.mParam[0] = gradientF.x;
+				tempS.mParam[1] = gradientF.y;
+				tempS.mParam[2] = gradientF.z;
+			}
+			break;
 			case Fluid:
-				tempS.mParam[0] = cohesionCoefficient;
-				tempS.mParam[1] = viscosityCoefficient;
+				tempS.mParam[0] = fluid.cohesionCoefficient;
+				tempS.mParam[1] = fluid.viscosityCoefficient;
 				break;
 			default:
 				break;
 		}
 		sWorld->mSpecks.push_back(tempS);
 	}
+	// Invalidate buffers.
 	sWorld->mSpecksHandler->AddParticles((UINT)newSpecks.size());
 
 	switch (speckType)
@@ -325,20 +449,25 @@ int AddSpecksCommand::Execute(void * ptIn, void * ptOut) const
 		case Normal:
 			break;
 		case RigidBody:
-			AddRigidBody(ptIn);
+			AddRigidBody(ptIn, result);
+			break;
+		case RigidBodyJoint:
+			AddRigidBodyJoint(ptIn, result);
 			break;
 		case Fluid:
 			break;
 		default:
 			break;
 	}
+
 	return 0;
 }
 
-void AddSpecksCommand::AddRigidBody(void *ptIn) const
+void AddSpecksCommand::AddRigidBody(void *ptIn, CommandResult *result) const
 {
 	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
 	SpeckWorld *sWorld = static_cast<SpeckWorld*>(&sApp->GetWorld());
+	UINT firstIndex = (UINT)(sWorld->GetSpeckInstancesRenderItem()->mInstanceCount - newSpecks.size());
 
 	// Calculate center of mass.
 	float cmX = 0.0f;
@@ -347,7 +476,7 @@ void AddSpecksCommand::AddRigidBody(void *ptIn) const
 	float massSum = 0.0f;
 	for (UINT i = 0; i < (UINT)newSpecks.size(); ++i)
 	{
-		float mass = newSpecks[i].mass;
+		float mass = speckMass;
 		XMFLOAT3 position = newSpecks[i].position;
 		cmX += mass * position.x;
 		cmY += mass * position.y;
@@ -362,9 +491,10 @@ void AddSpecksCommand::AddRigidBody(void *ptIn) const
 
 	SpeckRigidBodyData data;
 	transform.Store(&data.mRBData.mWorld);
-	XMMATRIX invW = transform.GetInvWorldMatrix();
+	data.mRBData.updateToGPU = true;
+	data.mRBData.movementMode = RIGID_BODY_MOVEMENT_MODE_GPU;
+	XMMATRIX invW = transform.GetInverseWorldMatrix();
 	data.mLinks.resize(newSpecks.size());
-	UINT firstIndex = (UINT)(sWorld->GetSpeckInstancesRenderItem()->mInstanceCount - newSpecks.size());
 
 	for (UINT i = 0; i < data.mLinks.size(); i++)
 	{
@@ -375,5 +505,162 @@ void AddSpecksCommand::AddRigidBody(void *ptIn) const
 		XMStoreFloat3(&data.mLinks[i].mPosInRigidBody, posL);
 	}
 	sWorld->mSpeckRigidBodyData.push_back(data);
+	// For speck links
 	sWorld->mSpecksHandler->InvalidateRigidBodyLinksBuffers();
+	// For the correct movement mode flag
+	sWorld->mSpecksHandler->InvalidateRigidBodyUploaderBuffer();
+
+	// Return values
+	UINT rigidBodyIndex = (UINT)(sWorld->mSpeckRigidBodyData.size() - 1);
+	AddSpecksCommandResult *resPt;
+	if (!result || !(resPt = dynamic_cast<AddSpecksCommandResult *>(result)))
+	{
+		LOG(L"Result object is not passed to the function or it is not of the appropriate type.", WARNING);
+	}
+	else
+	{
+		resPt->rigidBodyIndex = rigidBodyIndex;
+	}
+}
+
+void AddSpecksCommand::AddRigidBodyJoint(void *ptIn, CommandResult *result) const
+{
+	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
+	SpeckWorld *sWorld = static_cast<SpeckWorld*>(&sApp->GetWorld());
+	UINT firstIndex = (UINT)(sWorld->GetSpeckInstancesRenderItem()->mInstanceCount - newSpecks.size());
+
+	UINT rb1Index = rigidBodyJoint.rigidBodyIndex[0];
+	UINT rb2Index = rigidBodyJoint.rigidBodyIndex[1];
+
+	SpeckRigidBodyData &rbd1 = sWorld->mSpeckRigidBodyData[rb1Index];
+	SpeckRigidBodyData &rbd2 = sWorld->mSpeckRigidBodyData[rb2Index];
+
+	UINT addingStartIndex1 = (UINT)rbd1.mLinks.size();
+	UINT addingStartIndex2 = (UINT)rbd2.mLinks.size();
+
+	rbd1.mLinks.resize(rbd1.mLinks.size() + newSpecks.size());
+	rbd2.mLinks.resize(rbd2.mLinks.size() + newSpecks.size());
+
+	// Add the joint specks to the rigid body
+	for (UINT i = 0; i < newSpecks.size(); i++)
+	{
+		UINT speckIndex = firstIndex + i;
+		XMVECTOR posW = XMLoadFloat3(&sWorld->mSpecks[speckIndex].mPosition);
+
+		UINT linkIndex1 = addingStartIndex1 + i;
+		UINT linkIndex2 = addingStartIndex2 + i;
+
+		rbd1.mLinks[linkIndex1].mSpeckIndex = speckIndex;
+		rbd2.mLinks[linkIndex2].mSpeckIndex = speckIndex;
+	}
+
+	// Recalculate center of masses for body 1
+	float cmX = 0.0f;
+	float cmY = 0.0f;
+	float cmZ = 0.0f;
+	float massSum = 0.0f;
+	for (UINT i = 0; i < rbd1.mLinks.size(); i++)
+	{
+		UINT speckIndex = rbd1.mLinks[i].mSpeckIndex;
+		float mass = sWorld->mSpecks[speckIndex].mMass;
+		XMFLOAT3 position = sWorld->mSpecks[speckIndex].mPosition;
+		cmX += mass * position.x;
+		cmY += mass * position.y;
+		cmZ += mass * position.z;
+		massSum += mass;
+	}
+	cmX /= massSum;
+	cmY /= massSum;
+	cmZ /= massSum;
+	rbd1.mRBData.mWorld._41 = cmX; // change just the translation component
+	rbd1.mRBData.mWorld._42 = cmY;
+	rbd1.mRBData.mWorld._43 = cmZ;
+	XMMATRIX W1 = XMLoadFloat4x4(&rbd1.mRBData.mWorld);
+	XMMATRIX invW1 = XMMatrixInverse(0, W1);
+
+	// Recalculate center of masses for body 2
+	cmX = 0.0f;
+	cmY = 0.0f;
+	cmZ = 0.0f;
+	massSum = 0.0f;
+	for (UINT i = 0; i < rbd2.mLinks.size(); i++)
+	{
+		UINT speckIndex = rbd2.mLinks[i].mSpeckIndex;
+		float mass = sWorld->mSpecks[speckIndex].mMass;
+		XMFLOAT3 position = sWorld->mSpecks[speckIndex].mPosition;
+		cmX += mass * position.x;
+		cmY += mass * position.y;
+		cmZ += mass * position.z;
+		massSum += mass;
+	}
+	cmX /= massSum;
+	cmY /= massSum;
+	cmZ /= massSum;
+	rbd2.mRBData.mWorld._41 = cmX; // change just the translation component
+	rbd2.mRBData.mWorld._42 = cmY;
+	rbd2.mRBData.mWorld._43 = cmZ;
+	XMMATRIX W2 = XMLoadFloat4x4(&rbd2.mRBData.mWorld);
+	XMMATRIX invW2 = XMMatrixInverse(0, W2);
+
+	// Recalculate relative speck positions in body 1
+	for (UINT i = 0; i < rbd1.mLinks.size(); i++)
+	{
+		UINT speckIndex = rbd1.mLinks[i].mSpeckIndex; // We already have this for all member specks
+		XMVECTOR posW = XMLoadFloat3(&sWorld->mSpecks[speckIndex].mPosition);
+		XMVECTOR posL = XMVector3TransformCoord(posW, invW1);
+		XMStoreFloat3(&rbd1.mLinks[i].mPosInRigidBody, posL);
+	}
+
+	// Recalculate relative speck positions in body 2
+	for (UINT i = 0; i < rbd2.mLinks.size(); i++)
+	{
+		UINT speckIndex = rbd2.mLinks[i].mSpeckIndex; // We already have this for all member specks
+		XMVECTOR posW = XMLoadFloat3(&sWorld->mSpecks[speckIndex].mPosition);
+		XMVECTOR posL = XMVector3TransformCoord(posW, invW2);
+		XMStoreFloat3(&rbd2.mLinks[i].mPosInRigidBody, posL);
+	}
+
+	// Buffer invalidation for speck links
+	sWorld->mSpecksHandler->InvalidateRigidBodyLinksBuffers();
+	// For the correct movement mode flag
+	sWorld->mSpecksHandler->InvalidateRigidBodyUploaderBuffer();
+}
+
+int UpdateSpeckRigidBodyCommand::Execute(void * ptIn, CommandResult * result) const
+{
+	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
+	SpeckWorld *sWorld = static_cast<SpeckWorld*>(&sApp->GetWorld());
+
+	RigidBodyData &rbd = sWorld->mSpeckRigidBodyData[rigidBodyIndex].mRBData;
+	rbd.updateToGPU = true;
+	rbd.movementMode = (movementMode == RigidBodyMovementMode::CPU) ? RIGID_BODY_MOVEMENT_MODE_CPU : RIGID_BODY_MOVEMENT_MODE_GPU;
+	transform.StoreTranspose(&rbd.mWorld);
+	sWorld->mSpecksHandler->InvalidateRigidBodyUploaderBuffer();
+
+	return 0;
+}
+
+int SetTimeMultiplierCommand::Execute(void * ptIn, CommandResult * result) const
+{
+	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
+	SpeckWorld *sWorld = static_cast<SpeckWorld*>(&sApp->GetWorld());
+	sWorld->mSpecksHandler->SetTimeMultiplier(timeMultiplierConstant);
+
+	return 0;
+}
+
+int SetSpecksSolverParametersCommand::Execute(void * ptIn, CommandResult * result) const
+{
+
+	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
+	SpeckWorld *sWorld = static_cast<SpeckWorld*>(&sApp->GetWorld());
+
+	if (stabilizationIteraions != UINT_MAX)
+		sWorld->mSpecksHandler->SetStabilizationIteraions(stabilizationIteraions);
+	if (solverIterations != UINT_MAX)
+		sWorld->mSpecksHandler->SetSolverIterations(solverIterations);
+	if (substepsIterations != UINT_MAX)
+		sWorld->mSpecksHandler->SetSubstepsIterations(substepsIterations);
+
+	return 0;
 }

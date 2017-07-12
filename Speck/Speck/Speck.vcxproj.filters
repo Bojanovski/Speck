@@ -21,9 +21,21 @@
     <ClCompile Include="MainState.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="HumanoidSkeleton.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="JointTestingState.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MainState.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HumanoidSkeleton.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="JointTestingState.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

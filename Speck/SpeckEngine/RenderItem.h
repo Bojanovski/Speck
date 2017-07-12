@@ -12,6 +12,7 @@ namespace Speck
 {
 	class App;
 	class SpecksHandler;
+	class DirectXCore;
 
 	// Lightweight structure stores parameters to draw a shape.  This will
 	// vary from app-to-app.
@@ -23,6 +24,10 @@ namespace Speck
 		virtual void UpdateBufferGPU(App *app, FrameResource *currentFrameResource) {}
 		virtual void Render(App *app, FrameResource* frameResource, const DirectX::BoundingFrustum &camFrustum) = 0;
 
+	protected:
+		DirectXCore &GetDirectXCore(App *app) const;// { return app->GetEngineCore().GetDirectXCore(); }
+
+	public:
 		MeshGeometry* mGeo = nullptr;
 
 		// Primitive topology.
@@ -45,10 +50,22 @@ namespace Speck
 		UINT mBufferIndex;
 	};
 
-	struct SingleRenderItem : public RenderItem
+	struct TexturedRenderItem : public RenderItem
 	{
-		SingleRenderItem() = default;
-		SingleRenderItem(const SingleRenderItem& rhs) = delete;
+		TexturedRenderItem() = default;
+		TexturedRenderItem(const TexturedRenderItem& rhs) = delete;
+
+		// Texture transform for this item
+		DirectX::XMFLOAT4X4 mTexTransform = MathHelper::Identity4x4();
+		// Material for this item
+		PBRMaterial *mMat = nullptr;
+	};
+
+
+	struct StaticRenderItem : public TexturedRenderItem
+	{
+		StaticRenderItem() = default;
+		StaticRenderItem(const StaticRenderItem& rhs) = delete;
 		void UpdateBufferCPU(App *app, FrameResource *currentFrameResource) override;
 		void Render(App *app, FrameResource* frameResource, const DirectX::BoundingFrustum &camFrustum) override;
 
@@ -58,15 +75,47 @@ namespace Speck
 		// NumFramesDirty = NUM_FRAME_RESOURCES so that each frame resource gets the update.
 		int mNumFramesDirty = NUM_FRAME_RESOURCES;
 
-		Transform mT;
-		DirectX::XMFLOAT4X4 mTexTransform = MathHelper::Identity4x4();
+		// World transform of the render item
+		Transform mW;
 		DirectX::BoundingBox const *mBounds;
 
-		// Material of this item
-		PBRMaterial *mMat = nullptr;
+		// Index into GPU constant buffer corresponding to the RenderItemConstants for this render item.
+		UINT mRenderItemBufferIndex = -1;
+	};
+
+	// This body transformation will be determined by its respective speck rigid body.
+	struct SpeckRigidBodyRenderItem : public TexturedRenderItem
+	{
+		SpeckRigidBodyRenderItem() = default;
+		SpeckRigidBodyRenderItem(const StaticRenderItem& rhs) = delete;
+		void UpdateBufferCPU(App *app, FrameResource *currentFrameResource) override;
+		void Render(App *app, FrameResource* frameResource, const DirectX::BoundingFrustum &camFrustum) override;
+
+		// Dirty flag indicating the object data has changed and we need to update the constant buffer.
+		// Because we have an object cbuffer for each FrameResource, we have to apply the
+		// update to each FrameResource.  Thus, when we modify obect data we should set 
+		// NumFramesDirty = NUM_FRAME_RESOURCES so that each frame resource gets the update.
+		int mNumFramesDirty = NUM_FRAME_RESOURCES;
+
+		// Local transform of the render item.
+		Transform mL;
+		// Index to the speck rigid body buffer on the GPU.
+		UINT mSpeckRigidBodyIndex = -1;
+
+		// Index into GPU constant buffer corresponding to this render item.
+		UINT mRenderItemBufferIndex = -1;
+	};
+
+	// This body bone transformations will be determined by its respective speck rigid bodies.
+	struct SpeckSkeletalBodyRenderItem : public TexturedRenderItem
+	{
+		SpeckSkeletalBodyRenderItem() = default;
+		SpeckSkeletalBodyRenderItem(const StaticRenderItem& rhs) = delete;
+		void UpdateBufferCPU(App *app, FrameResource *currentFrameResource) override;
+		void Render(App *app, FrameResource* frameResource, const DirectX::BoundingFrustum &camFrustum) override;
 
 		// Index into GPU constant buffer corresponding to the ObjectCB for this render item.
-		UINT mObjCBIndex = -1;
+		//UINT mObjCBIndex = -1;
 	};
 }
 

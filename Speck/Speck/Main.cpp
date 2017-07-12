@@ -4,6 +4,7 @@
 #include <World.h>
 #include <App.h>
 #include "MainState.h"
+#include "JointTestingState.h"
 
 using namespace Speck;
 using namespace std;
@@ -20,7 +21,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 		unique_ptr<EngineCore> ec;
 		unique_ptr<World> w;
 		unique_ptr<App> app;
-		CreateSpeckApp(hInstance, 100000, 64, 100, &ec, &w, &app);
+		CreateSpeckApp(hInstance, 0.25f, 100, 1000, &ec, &w, &app);
 		if (!app->Initialize())
 			return 0;
 

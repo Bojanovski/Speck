@@ -243,7 +243,7 @@ void MainState::Initialize()
 	cmd3.speckRigidBodyRenderItem.rigidBodyIndex = commandResult.rigidBodyIndex;
 	cmd3.speckRigidBodyRenderItem.localTransform.MakeIdentity();
 	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(2.0f, 2.0f, 2.0f);
-	//GetWorld().ExecuteCommand(cmd3);
+	GetWorld().ExecuteCommand(cmd3);
 
 
 	asrbc.speckType = WorldCommands::SpeckType::RigidBody;
@@ -289,7 +289,7 @@ void MainState::Initialize()
 	GetWorld().ExecuteCommand(efc);
 
 	mHumanoidSkeleton = make_unique<HumanoidSkeleton>(GetWorld());
-	mHumanoidSkeleton->Initialize(L"Data/Animations/house_dancing_3.fbx", &GetApp());
+	mHumanoidSkeleton->Initialize(L"Data/Animations/house_dancing.fbx", &GetApp());
 
 	WorldCommands::SetTimeMultiplierCommand stmc;
 	stmc.timeMultiplierConstant = 1.0f;

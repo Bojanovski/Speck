@@ -73,11 +73,13 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(SolutionDir)SpeckEngine;$(IncludePath)</IncludePath>
     <OutDir>$(SolutionDir)Build\</OutDir>
+	<WorkingDir>$(SolutionDir)Build\</WorkingDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(SolutionDir)SpeckEngine;$(SolutionDir)Libraries/FBX/include;$(IncludePath)</IncludePath>
     <OutDir>$(SolutionDir)Build\</OutDir>
+	<WorkingDir>$(SolutionDir)Buildee\</WorkingDir>
     <LibraryPath>$(SolutionDir)Libraries/FBX/lib/vs2015/x64/debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">

@@ -44,7 +44,7 @@ VertexOut main(VertexIn vin)
 			world = mul(gTransform, gRigidBodies[speckRigidBodyIndex].world);
 			// Since speck rigid body transform has no scaling in it, simple cast is enough to get the inverse transpose transform.
 			float3x3 speckRigidBodyInvTransposeTransform = (float3x3)gRigidBodies[speckRigidBodyIndex].world;
-			invTransposeWorld = mul(gInvTransposeTransform, speckRigidBodyInvTransposeTransform);
+			invTransposeWorld = mul((float3x3)gInvTransposeTransform, speckRigidBodyInvTransposeTransform);
 		}
 		break;
 

@@ -56,15 +56,15 @@ namespace GPU
 
 	struct SpeckCollisionSpace
 	{
-		UINT count;				// number of cells in the neighbourhood
+		UINT count;									// number of cells in the neighbourhood
 		struct { UINT index; }  cells[3 * 3 * 3];	// contains index to the cell that contains the speck and indices to all the sourounding cells.
 	};
 
 	// Information about a single spatial hash cell on the device.
 	struct SpatialHashingCellData
 	{
-		UINT count;												// number of specks
-		struct { UINT index; } specks[MAX_SPECKS_PER_CELL];		// array of specks
+		UINT count;											// number of specks
+		struct { UINT index; } specks[MAX_SPECKS_PER_CELL];	// array of specks
 	};
 
 	// Information about a single static collider on the device.

@@ -132,7 +132,7 @@ void MainState::Initialize()
 	cmd3.materialName = "pbrMatTest";
 	cmd3.meshName = "box";
 	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(60.0f, 20.0f, 5.0f);
-	cmd3.staticRenderItem.worldTransform.mT = XMFLOAT3(0.0f, -0.0f, 20.0f);
+	cmd3.staticRenderItem.worldTransform.mT = XMFLOAT3(0.0f, -0.0f, 15.0f);
 	XMStoreFloat4(&cmd3.staticRenderItem.worldTransform.mR, XMQuaternionRotationRollPitchYaw(0.0f, 0.0f, 0.0f));
 	GetWorld().ExecuteCommand(cmd3);
 	// collision
@@ -178,7 +178,7 @@ void MainState::Initialize()
 	asrbc.fluid.cohesionCoefficient = 0.03f;
 	asrbc.fluid.viscosityCoefficient = 0.1f;
 	asrbc.speckMass = 0.4f;
-	asrbc.newSpecks.resize(32000);
+	asrbc.newSpecks.resize(8000);
 	int n = (int)pow(asrbc.newSpecks.size(), 1.0f / 3.0f);
 	int nPow3 = n*n*n;
 	float width = 15.0f;

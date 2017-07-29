@@ -274,9 +274,6 @@
     <FxCompile Include="specksCS_phase5_3.hlsl">
       <Filter>Resource Files\Shaders\specksCS</Filter>
     </FxCompile>
-    <FxCompile Include="MathHelper.hlsl">
-      <Filter>Resource Files\Shaders</Filter>
-    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="LightingUtil.hlsl">
@@ -294,6 +291,7 @@
     <None Include="specksCS_Root.hlsl">
       <Filter>Resource Files\Shaders\specksCS</Filter>
     </None>
+    <None Include="MathHelper.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="SpeckEngine.rc">

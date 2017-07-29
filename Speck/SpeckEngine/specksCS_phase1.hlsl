@@ -25,7 +25,9 @@ void main(int3 threadGroupID : SV_GroupID, int3 dispatchThreadID : SV_DispatchTh
 		[unroll(SPECK_SPECIAL_PARAM_N)]
 		for (int j = 0; j < SPECK_SPECIAL_PARAM_N; ++j)
 		{
-			newData.param[j] = gInstancesIn[speckIndex].param[j];
+			//newData.param[j] = gInstancesIn[speckIndex].param[j];
+			SpeckUploadData temp = gInstancesIn[speckIndex];
+			newData.param[j] = temp.param[j];
 		}
 		newData.vel = float3(0.0f, 0.0f, 0.0f);
 	}
@@ -47,7 +49,7 @@ void main(int3 threadGroupID : SV_GroupID, int3 dispatchThreadID : SV_DispatchTh
 	if (posToWrite < MAX_SPECKS_PER_CELL)
 	{
 		// Register this speck to the appropriate position in the assigned cell.
-		gSPCells[cellID].specks[posToWrite] = speckIndex;
+		gSPCells[cellID].specks[posToWrite].index = speckIndex;
 	}
 	//else
 		// All the specks that get assigned to the cell that has no more room
@@ -104,7 +106,7 @@ void main(int3 threadGroupID : SV_GroupID, int3 dispatchThreadID : SV_DispatchTh
 				// Add the data
 				if (shouldAdd)
 				{
-					gSpeckCollisionSpaces[speckIndex].cells[insertAt] = neighbourCellID;
+					gSpeckCollisionSpaces[speckIndex].cells[insertAt].index = neighbourCellID;
 					++insertAt;
 				}
 			}

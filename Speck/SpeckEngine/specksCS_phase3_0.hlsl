@@ -25,7 +25,7 @@ void main(int3 threadGroupID : SV_GroupID, int3 dispatchThreadID : SV_DispatchTh
 	for (uint i = 0; i < c; ++i)
 	{
 		// Get the neighbour cell index.
-		uint neighbourCellIndex = gSpeckCollisionSpaces[speckIndex].cells[i];
+		uint neighbourCellIndex = gSpeckCollisionSpaces[speckIndex].cells[i].index;
 		uint specksNum = gSPCells[neighbourCellIndex].count; // number of specks
 		if (specksNum > MAX_SPECKS_PER_CELL) specksNum = MAX_SPECKS_PER_CELL; // in case there was an overflow
 
@@ -34,7 +34,7 @@ void main(int3 threadGroupID : SV_GroupID, int3 dispatchThreadID : SV_DispatchTh
 		for (uint l = 0; l < specksNum; ++l)
 		{
 			// Get the neighbour speck
-			uint neighbourSpeckIndex = gSPCells[neighbourCellIndex].specks[l];
+			uint neighbourSpeckIndex = gSPCells[neighbourCellIndex].specks[l].index;
 			if (neighbourSpeckIndex == speckIndex)
 				continue; // do not check collision with itself
 

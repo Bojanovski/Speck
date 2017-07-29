@@ -69,15 +69,15 @@ struct SpeckData
 // Contains index to the cell that contains the speck and indices to all the sourounding cells.
 struct SpeckCollisionSpace
 {
-	uint cells[3*3*3];
-	uint count;
+	uint count;									// number of cells in the neighbourhood
+	struct { uint index; } cells[3 * 3 * 3];	// contains index to the cell that contains the speck and indices to all the sourounding cells.
 };
 
 // Information about a single spatial hash cell on the device.
 struct SpatialHashingCellData
 {
-	uint specks[MAX_SPECKS_PER_CELL];	// array of specks
-	uint count;							// number of specks
+	uint count;												// number of specks
+	struct { uint index; } specks[MAX_SPECKS_PER_CELL];		// array of specks
 };
 
 // Information about a single static collider on the device.

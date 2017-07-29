@@ -178,7 +178,7 @@ void MainState::Initialize()
 	asrbc.fluid.cohesionCoefficient = 0.03f;
 	asrbc.fluid.viscosityCoefficient = 0.1f;
 	asrbc.speckMass = 0.4f;
-	asrbc.newSpecks.resize(8000);
+	asrbc.newSpecks.resize(16000);
 	int n = (int)pow(asrbc.newSpecks.size(), 1.0f / 3.0f);
 	int nPow3 = n*n*n;
 	float width = 15.0f;

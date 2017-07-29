@@ -1,6 +1,8 @@
 # Speck
 
-This is implementation of my Master Thesis..
+This is implementation of my Master Thesis... 
+
+More info will be added soon.
 
 --------------------------------------------------------------------
 

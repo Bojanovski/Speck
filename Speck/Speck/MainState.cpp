@@ -6,6 +6,7 @@
 #include <WorldCommands.h>
 #include <World.h>
 #include <SetLookAtCameraController.h>
+#include "SpeckPrimitivesGenerator.h"
 
 using namespace std;
 using namespace DirectX;
@@ -116,7 +117,7 @@ void MainState::Initialize()
 	cmd3.geometryName = "shapeGeo";
 	cmd3.materialName = "pbrMatTest";
 	cmd3.meshName = "box";
-	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(5.0f, 20.0f, 60.0f);
+	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(5.0f, 200.0f, 60.0f);
 	cmd3.staticRenderItem.worldTransform.mT = XMFLOAT3(20.0f, 0.0f, 0.0f);
 	XMStoreFloat4(&cmd3.staticRenderItem.worldTransform.mR, XMQuaternionRotationRollPitchYaw(0.0f, 0.0f, 0.0f));
 	GetWorld().ExecuteCommand(cmd3);
@@ -131,7 +132,7 @@ void MainState::Initialize()
 	cmd3.geometryName = "shapeGeo";
 	cmd3.materialName = "pbrMatTest";
 	cmd3.meshName = "box";
-	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(60.0f, 20.0f, 5.0f);
+	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(60.0f, 200.0f, 5.0f);
 	cmd3.staticRenderItem.worldTransform.mT = XMFLOAT3(0.0f, -0.0f, 15.0f);
 	XMStoreFloat4(&cmd3.staticRenderItem.worldTransform.mR, XMQuaternionRotationRollPitchYaw(0.0f, 0.0f, 0.0f));
 	GetWorld().ExecuteCommand(cmd3);
@@ -146,7 +147,7 @@ void MainState::Initialize()
 	cmd3.geometryName = "shapeGeo";
 	cmd3.materialName = "pbrMatTest";
 	cmd3.meshName = "box";
-	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(5.0f, 20.0f, 60.0f);
+	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(5.0f, 200.0f, 60.0f);
 	cmd3.staticRenderItem.worldTransform.mT = XMFLOAT3(-20.0f, 0.0f, 0.0f);
 	XMStoreFloat4(&cmd3.staticRenderItem.worldTransform.mR, XMQuaternionRotationRollPitchYaw(0.0f, 0.0f, 0.0f));
 	GetWorld().ExecuteCommand(cmd3);
@@ -178,7 +179,7 @@ void MainState::Initialize()
 	asrbc.fluid.cohesionCoefficient = 0.03f;
 	asrbc.fluid.viscosityCoefficient = 0.1f;
 	asrbc.speckMass = 0.4f;
-	asrbc.newSpecks.resize(16000);
+	asrbc.newSpecks.resize(32000);
 	int n = (int)pow(asrbc.newSpecks.size(), 1.0f / 3.0f);
 	int nPow3 = n*n*n;
 	float width = 15.0f;
@@ -204,75 +205,10 @@ void MainState::Initialize()
 	}
 	GetWorld().ExecuteCommand(asrbc);
 
-
-
-	asrbc.speckType = WorldCommands::SpeckType::RigidBody;
-	asrbc.frictionCoefficient = 0.6f;
-	asrbc.speckMass = 1.0f;
-	asrbc.newSpecks.resize(64);
-	n = (int)pow(asrbc.newSpecks.size(), 1.0f / 3.0f);
-	nPow3 = n*n*n;
-	width = 1.5f;
-	height = 1.5f;
-	depth = 1.5f;
-	x = -0.5f*width + 8.0f;
-	y = -0.5f*height + 6.0f;
-	z = -0.5f*depth + 0.0f;
-	dx = width / (n - 1);
-	dy = height / (n - 1);
-	dz = depth / (n - 1);
-	for (int k = 0; k < n; ++k)
-	{
-		for (int i = 0; i < n; ++i)
-		{
-			for (int j = 0; j < n; ++j)
-			{
-				int index = k*n*n + i*n + j;
-				// Position instanced along a 3D grid.
-				asrbc.newSpecks[index].position = XMFLOAT3(x + j*dx /*+ sin(i*0.1f)*/, y + i*dy, z + k*dz /*+ cos(i*0.1f)*/);
-			}
-		}
-	}
-	WorldCommands::AddSpecksCommandResult commandResult;
-	GetWorld().ExecuteCommand(asrbc, &commandResult);
-
-	cmd3.geometryName = "shapeGeo";
-	cmd3.materialName = "pbrMatTest2";
-	cmd3.meshName = "box";
-	cmd3.type = WorldCommands::RenderItemType::SpeckRigidBody;
-	cmd3.speckRigidBodyRenderItem.rigidBodyIndex = commandResult.rigidBodyIndex;
-	cmd3.speckRigidBodyRenderItem.localTransform.MakeIdentity();
-	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(2.0f, 2.0f, 2.0f);
-	GetWorld().ExecuteCommand(cmd3);
-
-
-	asrbc.speckType = WorldCommands::SpeckType::RigidBody;
-	asrbc.frictionCoefficient = 0.1f;
-	asrbc.newSpecks.resize(8);
-	n = (int)pow(asrbc.newSpecks.size(), 1.0f / 3.0f);
-	nPow3 = n*n*n;
-	width = 0.5f;
-	height = 0.5f;
-	depth = 0.5f;
-	x = -0.5f*width + 0.0f;
-	y = -0.5f*height + 30.0f;
-	z = -0.5f*depth + 0.1f;
-	dx = width / (n - 1);
-	dy = height / (n - 1);
-	dz = depth / (n - 1);
-	for (int k = 0; k < n; ++k)
-	{
-		for (int i = 0; i < n; ++i)
-		{
-			for (int j = 0; j < n; ++j)
-			{
-				int index = k*n*n + i*n + j;
-				// Position instanced along a 3D grid.
-				asrbc.newSpecks[index].position = XMFLOAT3(x + j*dx /*+ 0.1f*sin(i*0.1f)*/, y + i*dy, z + k*dz /*+ 0.1f*cos(i*0.1f)*/);
-			}
-		}
-	}
-	//GetWorld().ExecuteCommand(asrbc);
+	// Add some rigd bodies
+	SpeckPrimitivesGenerator spg(GetWorld());
+	spg.GenerateBox(4, 4, 4, "pbrMatTest2", { 8.0f, 6.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	spg.GenerateBox(6, 2, 2, "pbrMatTest2", { 8.0f, 9.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 
 	// Add an env map
 	WorldCommands::AddEnviromentMapCommand cmd4;

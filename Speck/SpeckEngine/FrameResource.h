@@ -23,7 +23,8 @@ namespace Speck
 
 		UINT RenderItemType;
 		UINT MaterialIndex;
-		UINT Param[RENDER_ITEM_SPECIAL_PARAM_N];
+		UINT2 gPadding;
+		UINT4 Param[RENDER_ITEM_SPECIAL_PARAM_N];
 	};
 
 	struct PassConstants

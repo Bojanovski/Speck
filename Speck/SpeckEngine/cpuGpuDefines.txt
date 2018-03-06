@@ -51,7 +51,7 @@
 #define NUM_RIGID_BODY_CONSTRAINTS_PER_SPECK 3
 
 // Rigid bodies:
-#define MAX_RIGID_BODIES 1000
+#define MAX_RIGID_BODIES 4000
 #define MAX_SPECK_RIGID_BODY_LINKS MAX_SPECKS
 #define SPECK_RIGID_BODY_LINKS_CS_N_THREADS 64 // number of speck rigid body links to proces concurrently in one thread group batch
 #define RIGID_BODY_MOVEMENT_MODE_CPU 0

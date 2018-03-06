@@ -72,7 +72,7 @@ void SpeckWorld::Update()
 	// For each PSO group.
 	for (auto& psoGrp : mPSOGroups)
 	{
-		// For each render item in a PSO group.
+		// For each render item in the PSO group.
 		for (auto& rItem : psoGrp.second->mRItems)
 		{
 			rItem->UpdateBufferCPU(sApp, sApp->mCurrFrameResource);

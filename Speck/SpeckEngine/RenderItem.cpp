@@ -105,7 +105,7 @@ void SpeckRigidBodyRenderItem::UpdateBufferCPU(App * app, FrameResource * curren
 		XMStoreFloat4x4(&renderItemConstants.TexTransform, XMMatrixTranspose(texTransform));
 		renderItemConstants.MaterialIndex = mMat->MatCBIndex;
 		renderItemConstants.RenderItemType = RENDER_ITEM_TYPE_SPECK_RIGID_BODY;
-		renderItemConstants.Param[0] = mSpeckRigidBodyIndex;
+		renderItemConstants.Param[0].x = mSpeckRigidBodyIndex;
 		auto upBuff = currentFrameResource->RenderItemConstantsBuffer.get();
 		upBuff->CopyData(mRenderItemBufferIndex, renderItemConstants);
 
@@ -137,10 +137,12 @@ void SpeckRigidBodyRenderItem::Render(App * app, FrameResource * frameResource, 
 
 void SpeckSkeletalBodyRenderItem::UpdateBufferCPU(App * app, FrameResource * currentFrameResource)
 {
+	THROW_NOT_IMPLEMENTED;
 }
 
 void SpeckSkeletalBodyRenderItem::Render(App * app, FrameResource * frameResource, const BoundingFrustum & camFrustum)
 {
+	THROW_NOT_IMPLEMENTED;
 }
 
 DirectXCore &RenderItem::GetDirectXCore(App * app) const

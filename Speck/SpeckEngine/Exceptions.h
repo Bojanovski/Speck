@@ -31,4 +31,9 @@ namespace Speck
     throw Exception(finalMsg);							\
 }
 
+#define THROW_NOT_IMPLEMENTED					\
+{												\
+	THROW(TEXT("Not implemented!"));			\
+}
+
 #endif

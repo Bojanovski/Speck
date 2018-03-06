@@ -40,7 +40,7 @@ VertexOut main(VertexIn vin)
 
 		case RENDER_ITEM_TYPE_SPECK_RIGID_BODY:
 		{
-			uint speckRigidBodyIndex = gParam[0];
+			uint speckRigidBodyIndex = gParam[0].x;
 			world = mul(gTransform, gRigidBodies[speckRigidBodyIndex].world);
 			// Since speck rigid body transform has no scaling in it, simple cast is enough to get the inverse transpose transform.
 			float3x3 speckRigidBodyInvTransposeTransform = (float3x3)gRigidBodies[speckRigidBodyIndex].world;

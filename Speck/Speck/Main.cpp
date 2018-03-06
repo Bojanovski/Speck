@@ -25,7 +25,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 		if (!app->Initialize())
 			return 0;
 
-		int lol = app->Run(make_unique<MainState>(*ec));
+		int lol = app->Run(make_unique<JointTestingState>(*ec));
 
 
 		app.reset();

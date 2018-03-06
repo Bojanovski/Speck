@@ -7,6 +7,7 @@
 #include <World.h>
 #include <InputHandler.h>
 #include <SetLookAtCameraController.h>
+#include "SpeckPrimitivesGenerator.h"
 
 using namespace std;
 using namespace DirectX;
@@ -22,6 +23,7 @@ JointTestingState::~JointTestingState()
 {
 }
 
+#pragma optimize("", off)
 void JointTestingState::Initialize()
 {
 	AppCommands::LimitFrameTimeCommand lftc;
@@ -98,7 +100,7 @@ void JointTestingState::Initialize()
 	cmd3.materialName = "pbrMatTest";
 	cmd3.meshName = "box";
 	cmd3.type = WorldCommands::RenderItemType::Static;
-	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(70.0f, 5.0f, 70.0f);
+	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(270.0f, 5.0f, 270.0f);
 	cmd3.staticRenderItem.worldTransform.mT = XMFLOAT3(0.0f, -1.0f, 0.0f);
 	XMStoreFloat4(&cmd3.staticRenderItem.worldTransform.mR, XMQuaternionRotationRollPitchYaw(0.0f, 0.0f, 0.0f));
 	GetWorld().ExecuteCommand(cmd3);
@@ -109,422 +111,19 @@ void JointTestingState::Initialize()
 	scc.transform.mS = cmd3.staticRenderItem.worldTransform.mS;
 	GetWorld().ExecuteCommand(scc);
 
-	// Add an object
-	XMStoreFloat4x4(&cmd3.texTransform, XMMatrixScaling(5.0f, 5.0f, 0.5f));
-	cmd3.geometryName = "shapeGeo";
-	cmd3.materialName = "pbrMatTest";
-	cmd3.meshName = "box";
-	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(5.0f, 20.0f, 60.0f);
-	cmd3.staticRenderItem.worldTransform.mT = XMFLOAT3(20.0f, 0.0f, 0.0f);
-	XMStoreFloat4(&cmd3.staticRenderItem.worldTransform.mR, XMQuaternionRotationRollPitchYaw(0.0f, 0.0f, 0.0f));
-	GetWorld().ExecuteCommand(cmd3);
-	// collision
-	scc.transform.mR = cmd3.staticRenderItem.worldTransform.mR;
-	scc.transform.mT = cmd3.staticRenderItem.worldTransform.mT;
-	scc.transform.mS = cmd3.staticRenderItem.worldTransform.mS;
-	GetWorld().ExecuteCommand(scc);
-
-	// Add an object
-	XMStoreFloat4x4(&cmd3.texTransform, XMMatrixScaling(5.0f, 5.0f, 0.5f));
-	cmd3.geometryName = "shapeGeo";
-	cmd3.materialName = "pbrMatTest";
-	cmd3.meshName = "box";
-	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(60.0f, 20.0f, 5.0f);
-	cmd3.staticRenderItem.worldTransform.mT = XMFLOAT3(0.0f, -0.0f, 20.0f);
-	XMStoreFloat4(&cmd3.staticRenderItem.worldTransform.mR, XMQuaternionRotationRollPitchYaw(0.0f, 0.0f, 0.0f));
-	GetWorld().ExecuteCommand(cmd3);
-	// collision
-	scc.transform.mR = cmd3.staticRenderItem.worldTransform.mR;
-	scc.transform.mT = cmd3.staticRenderItem.worldTransform.mT;
-	scc.transform.mS = cmd3.staticRenderItem.worldTransform.mS;
-	GetWorld().ExecuteCommand(scc);
-
-	// Add an object
-	XMStoreFloat4x4(&cmd3.texTransform, XMMatrixScaling(5.0f, 5.0f, 0.5f));
-	cmd3.geometryName = "shapeGeo";
-	cmd3.materialName = "pbrMatTest";
-	cmd3.meshName = "box";
-	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(5.0f, 20.0f, 60.0f);
-	cmd3.staticRenderItem.worldTransform.mT = XMFLOAT3(-20.0f, 0.0f, 0.0f);
-	XMStoreFloat4(&cmd3.staticRenderItem.worldTransform.mR, XMQuaternionRotationRollPitchYaw(0.0f, 0.0f, 0.0f));
-	GetWorld().ExecuteCommand(cmd3);
-	// collision
-	scc.transform.mR = cmd3.staticRenderItem.worldTransform.mR;
-	scc.transform.mT = cmd3.staticRenderItem.worldTransform.mT;
-	scc.transform.mS = cmd3.staticRenderItem.worldTransform.mS;
-	GetWorld().ExecuteCommand(scc);
-
-	// Add an object
-	XMStoreFloat4x4(&cmd3.texTransform, XMMatrixScaling(5.0f, 5.0f, 0.5f));
-	cmd3.geometryName = "shapeGeo";
-	cmd3.materialName = "pbrMatTest";
-	cmd3.meshName = "box";
-	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(60.0f, 100.0f, 50.0f);
-	cmd3.staticRenderItem.worldTransform.mT = XMFLOAT3(0.0f, 0.0f, -40.0f);
-	XMStoreFloat4(&cmd3.staticRenderItem.worldTransform.mR, XMQuaternionRotationRollPitchYaw(0.0f, 0.0f, 0.0f));
-	GetWorld().ExecuteCommand(cmd3);
-	// collision
-	scc.transform.mR = cmd3.staticRenderItem.worldTransform.mR;
-	scc.transform.mT = cmd3.staticRenderItem.worldTransform.mT;
-	scc.transform.mS = cmd3.staticRenderItem.worldTransform.mS;
-	GetWorld().ExecuteCommand(scc);
-
-	for (int i = 5; i < 185; i += 2)
+	SpeckPrimitivesGenerator spg(GetWorld());
+	int num = 0;
+	for (int i = 0; i < 10; i += 1)
 	{
-
-		//
-		// first pair
-		//
-
-		// first body
-		WorldCommands::AddSpecksCommand asrbc;
-		WorldCommands::AddSpecksCommandResult commandResult;
-		asrbc.speckType = WorldCommands::SpeckType::RigidBody;
-		asrbc.frictionCoefficient = 0.6f;
-		asrbc.speckMass = 1.0f;
-		int nx = 2;
-		int ny = 7;
-		int nz = 2;
-		float width = (nx - 1) * 2.0f * speckRadius;
-		float height = (ny - 1) * 2.0f * speckRadius;
-		float depth = (nz - 1) * 2.0f * speckRadius;
-		float x = -0.5f*width;
-		float y = -0.5f*height + 9.0f + i*5.0f;
-		float z = -0.5f*depth;
-		float dx = width / (nx - 1);
-		float dy = height / (ny - 1);
-		float dz = depth / (nz - 1);
-		asrbc.newSpecks.resize(nx * ny * nz);
-
-		for (int i = 0; i < nx; ++i)
-		{
-			for (int j = 0; j < ny; ++j)
-			{
-				for (int k = 0; k < nz; ++k)
-				{
-					WorldCommands::NewSpeck speck;
-					// Position instanced along a 3D grid.
-					XMVECTOR pos = XMVectorSet(i*dx + x, j*dy + y, k*dz + z, 1.0f);
-					XMStoreFloat3(&speck.position, pos);
-					int index = i*ny*nz + j*nz + k;
-					asrbc.newSpecks[index] = speck;
-				}
-			}
-		}
-		GetWorld().ExecuteCommand(asrbc, &commandResult);
-		int rb1 = commandResult.rigidBodyIndex;
-
-		// second body
-		asrbc.speckType = WorldCommands::SpeckType::RigidBody;
-		asrbc.frictionCoefficient = 0.6f;
-		asrbc.speckMass = 1.0f;
-		nx = 2;
-		ny = 7;
-		nz = 2;
-		width = (nx - 1) * 2.0f * speckRadius;
-		height = (ny - 1) * 2.0f * speckRadius;
-		depth = (nz - 1) * 2.0f * speckRadius;
-		x = -0.5f*width;
-		y = -0.5f*height + 5.0f + i*5.0f;
-		z = -0.5f*depth;
-		dx = width / (nx - 1);
-		dy = height / (ny - 1);
-		dz = depth / (nz - 1);
-		asrbc.newSpecks.resize(nx * ny * nz);
-
-		for (int i = 0; i < nx; ++i)
-		{
-			for (int j = 0; j < ny; ++j)
-			{
-				for (int k = 0; k < nz; ++k)
-				{
-					WorldCommands::NewSpeck speck;
-					// Position instanced along a 3D grid.
-					XMVECTOR pos = XMVectorSet(i*dx + x, j*dy + y, k*dz + z, 1.0f);
-					XMStoreFloat3(&speck.position, pos);
-					int index = i*ny*nz + j*nz + k;
-					asrbc.newSpecks[index] = speck;
-				}
-			}
-		}
-
-		WorldCommands::NewSpeck speck;
-		XMVECTOR pos = XMVectorSet(-1.0f * speckRadius, 7.0f + i*5.0f, 1.0f * speckRadius, 1.0f);
-		XMStoreFloat3(&speck.position, pos);
-		asrbc.newSpecks.push_back(speck);
-		pos = XMVectorSet(-1.0f * speckRadius, 7.0f + i*5.0f, -1.0f * speckRadius, 1.0f);
-		XMStoreFloat3(&speck.position, pos);
-		asrbc.newSpecks.push_back(speck);
-
-		GetWorld().ExecuteCommand(asrbc, &commandResult);
-		int rb2 = commandResult.rigidBodyIndex;
-
-		// add joint
-		asrbc.speckType = WorldCommands::SpeckType::RigidBodyJoint;
-		asrbc.frictionCoefficient = 0.6f;
-		asrbc.speckMass = 1.0f;
-		asrbc.newSpecks.resize(64);
-		nx = 1;
-		ny = 1;
-		nz = 2;
-		width = (nx - 1) * 2.0f * speckRadius;
-		height = (ny - 1) * 2.0f * speckRadius;
-		depth = (nz - 1) * 2.0f * speckRadius;
-		x = -0.5f*width + 1.0f * speckRadius;
-		y = -0.5f*height + 7.0f + i*5.0f;
-		z = -0.5f*depth;
-		dx = 0.0f;
-		dy = 0.0f;
-		dz = depth / (nz - 1);
-		asrbc.newSpecks.resize(nx * ny * nz);
-
-		for (int i = 0; i < nx; ++i)
-		{
-			for (int j = 0; j < ny; ++j)
-			{
-				for (int k = 0; k < nz; ++k)
-				{
-					WorldCommands::NewSpeck speck;
-					// Position instanced along a 3D grid.
-					XMVECTOR pos = XMVectorSet(i*dx + x, j*dy + y, k*dz + z, 1.0f);
-					XMStoreFloat3(&speck.position, pos);
-					int index = i*ny*nz + j*nz + k;
-					asrbc.newSpecks[index] = speck;
-				}
-			}
-		}
-		asrbc.rigidBodyJoint.rigidBodyIndex[0] = rb1;
-		asrbc.rigidBodyJoint.rigidBodyIndex[1] = rb2;
-		GetWorld().ExecuteCommand(asrbc);
-
-		//
-		// second pair
-		//
-
-		// first body
-		asrbc.speckType = WorldCommands::SpeckType::RigidBody;
-		asrbc.frictionCoefficient = 0.6f;
-		asrbc.speckMass = 1.0f;
-		nx = 2;
-		ny = 7;
-		nz = 2;
-		width = (nx - 1) * 2.0f * speckRadius;
-		height = (ny - 1) * 2.0f * speckRadius;
-		depth = (nz - 1) * 2.0f * speckRadius;
-		x = -0.5f*width - 10.0f;
-		y = -0.5f*height + 9.0f + i*5.0f;
-		z = -0.5f*depth;
-		dx = width / (nx - 1);
-		dy = height / (ny - 1);
-		dz = depth / (nz - 1);
-		asrbc.newSpecks.resize(nx * ny * nz);
-
-		for (int i = 0; i < nx; ++i)
-		{
-			for (int j = 0; j < ny; ++j)
-			{
-				for (int k = 0; k < nz; ++k)
-				{
-					WorldCommands::NewSpeck speck;
-					// Position instanced along a 3D grid.
-					XMVECTOR pos = XMVectorSet(i*dx + x, j*dy + y, k*dz + z, 1.0f);
-					XMStoreFloat3(&speck.position, pos);
-					int index = i*ny*nz + j*nz + k;
-					asrbc.newSpecks[index] = speck;
-				}
-			}
-		}
-		GetWorld().ExecuteCommand(asrbc, &commandResult);
-		rb1 = commandResult.rigidBodyIndex;
-
-		// second body
-		asrbc.speckType = WorldCommands::SpeckType::RigidBody;
-		asrbc.frictionCoefficient = 0.6f;
-		asrbc.speckMass = 1.0f;
-		nx = 2;
-		ny = 7;
-		nz = 2;
-		width = (nx - 1) * 2.0f * speckRadius;
-		height = (ny - 1) * 2.0f * speckRadius;
-		depth = (nz - 1) * 2.0f * speckRadius;
-		x = -0.5f*width - 10.0f;
-		y = -0.5f*height + 5.0f + i*5.0f;
-		z = -0.5f*depth;
-		dx = width / (nx - 1);
-		dy = height / (ny - 1);
-		dz = depth / (nz - 1);
-		asrbc.newSpecks.resize(nx * ny * nz);
-
-		for (int i = 0; i < nx; ++i)
-		{
-			for (int j = 0; j < ny; ++j)
-			{
-				for (int k = 0; k < nz; ++k)
-				{
-					WorldCommands::NewSpeck speck;
-					// Position instanced along a 3D grid.
-					XMVECTOR pos = XMVectorSet(i*dx + x, j*dy + y, k*dz + z, 1.0f);
-					XMStoreFloat3(&speck.position, pos);
-					int index = i*ny*nz + j*nz + k;
-					asrbc.newSpecks[index] = speck;
-				}
-			}
-		}
-		GetWorld().ExecuteCommand(asrbc, &commandResult);
-		rb2 = commandResult.rigidBodyIndex;
-
-		// add joint
-		asrbc.speckType = WorldCommands::SpeckType::RigidBodyJoint;
-		asrbc.frictionCoefficient = 0.6f;
-		asrbc.speckMass = 1.0f;
-		asrbc.newSpecks.resize(64);
-		nx = 1;
-		ny = 1;
-		nz = 1;
-		width = (nx - 1) * 2.0f * speckRadius;
-		height = (ny - 1) * 2.0f * speckRadius;
-		depth = (nz - 1) * 2.0f * speckRadius;
-		x = -0.5f*width - 10.0f;
-		y = -0.5f*height + 7.0f + i*5.0f;
-		z = -0.5f*depth;
-		dx = 0.0f;
-		dy = 0.0f;
-		dz = 0.0f;
-		asrbc.newSpecks.resize(nx * ny * nz);
-
-		for (int i = 0; i < nx; ++i)
-		{
-			for (int j = 0; j < ny; ++j)
-			{
-				for (int k = 0; k < nz; ++k)
-				{
-					WorldCommands::NewSpeck speck;
-					// Position instanced along a 3D grid.
-					XMVECTOR pos = XMVectorSet(i*dx + x, j*dy + y, k*dz + z, 1.0f);
-					XMStoreFloat3(&speck.position, pos);
-					int index = i*ny*nz + j*nz + k;
-					asrbc.newSpecks[index] = speck;
-				}
-			}
-		}
-		asrbc.rigidBodyJoint.rigidBodyIndex[0] = rb1;
-		asrbc.rigidBodyJoint.rigidBodyIndex[1] = rb2;
-		GetWorld().ExecuteCommand(asrbc);
-
-		//
-		// third pair
-		//
-
-		// first body
-		asrbc.speckType = WorldCommands::SpeckType::RigidBody;
-		asrbc.frictionCoefficient = 0.6f;
-		asrbc.speckMass = 1.0f;
-		nx = 2;
-		ny = 7;
-		nz = 2;
-		width = (nx - 1) * 2.0f * speckRadius;
-		height = (ny - 1) * 2.0f * speckRadius;
-		depth = (nz - 1) * 2.0f * speckRadius;
-		x = -0.5f*width + 10.0f;
-		y = -0.5f*height + 9.0f + i*5.0f;
-		z = -0.5f*depth;
-		dx = width / (nx - 1);
-		dy = height / (ny - 1);
-		dz = depth / (nz - 1);
-		asrbc.newSpecks.resize(nx * ny * nz);
-
-		for (int i = 0; i < nx; ++i)
-		{
-			for (int j = 0; j < ny; ++j)
-			{
-				for (int k = 0; k < nz; ++k)
-				{
-					WorldCommands::NewSpeck speck;
-					// Position instanced along a 3D grid.
-					XMVECTOR pos = XMVectorSet(i*dx + x, j*dy + y, k*dz + z, 1.0f);
-					XMStoreFloat3(&speck.position, pos);
-					int index = i*ny*nz + j*nz + k;
-					asrbc.newSpecks[index] = speck;
-				}
-			}
-		}
-		GetWorld().ExecuteCommand(asrbc, &commandResult);
-		rb1 = commandResult.rigidBodyIndex;
-
-		// second body
-		asrbc.speckType = WorldCommands::SpeckType::RigidBody;
-		asrbc.frictionCoefficient = 0.6f;
-		asrbc.speckMass = 1.0f;
-		nx = 2;
-		ny = 7;
-		nz = 2;
-		width = (nx - 1) * 2.0f * speckRadius;
-		height = (ny - 1) * 2.0f * speckRadius;
-		depth = (nz - 1) * 2.0f * speckRadius;
-		x = -0.5f*width + 10.0f;
-		y = -0.5f*height + 5.0f + i*5.0f;
-		z = -0.5f*depth;
-		dx = width / (nx - 1);
-		dy = height / (ny - 1);
-		dz = depth / (nz - 1);
-		asrbc.newSpecks.resize(nx * ny * nz);
-
-		for (int i = 0; i < nx; ++i)
-		{
-			for (int j = 0; j < ny; ++j)
-			{
-				for (int k = 0; k < nz; ++k)
-				{
-					WorldCommands::NewSpeck speck;
-					// Position instanced along a 3D grid.
-					XMVECTOR pos = XMVectorSet(i*dx + x, j*dy + y, k*dz + z, 1.0f);
-					XMStoreFloat3(&speck.position, pos);
-					int index = i*ny*nz + j*nz + k;
-					asrbc.newSpecks[index] = speck;
-				}
-			}
-		}
-		GetWorld().ExecuteCommand(asrbc, &commandResult);
-		rb2 = commandResult.rigidBodyIndex;
-
-		// add joint
-		asrbc.speckType = WorldCommands::SpeckType::RigidBodyJoint;
-		asrbc.frictionCoefficient = 0.6f;
-		asrbc.speckMass = 1.0f;
-		asrbc.newSpecks.resize(64);
-		nx = 2;
-		ny = 1;
-		nz = 2;
-		width = (nx - 1) * 2.0f * speckRadius;
-		height = (ny - 1) * 2.0f * speckRadius;
-		depth = (nz - 1) * 2.0f * speckRadius;
-		x = -0.5f*width + 10.0f;
-		y = -0.5f*height + 7.0f + i*5.0f;
-		z = -0.5f*depth;
-		dx = width / (nx - 1);
-		dy = 0.0f;
-		dz = depth / (nz - 1);
-		asrbc.newSpecks.resize(nx * ny * nz);
-
-		for (int i = 0; i < nx; ++i)
-		{
-			for (int j = 0; j < ny; ++j)
-			{
-				for (int k = 0; k < nz; ++k)
-				{
-					WorldCommands::NewSpeck speck;
-					// Position instanced along a 3D grid.
-					XMVECTOR pos = XMVectorSet(i*dx + x, j*dy + y, k*dz + z, 1.0f);
-					XMStoreFloat3(&speck.position, pos);
-					int index = i*ny*nz + j*nz + k;
-					asrbc.newSpecks[index] = speck;
-				}
-			}
-		}
-		asrbc.rigidBodyJoint.rigidBodyIndex[0] = rb1;
-		asrbc.rigidBodyJoint.rigidBodyIndex[1] = rb2;
-		GetWorld().ExecuteCommand(asrbc);
+		num += spg.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::AsymetricHingeJoint, { 0.0f, 20.0f + i * 5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+		num += spg.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::HingeJoint, { -10.0f, 20.0f + i * 5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+		num += spg.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::BallAndSocket, { 10.0f, 20.0f + i * 5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+		num += spg.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::StiffJoint, { 20.0f, 20.0f + i * 5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 	}
+
+	spg.GenerateBox(4, 4, 4, "pbrMatTest", { 0.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	spg.GenerateBox(4, 4, 4, "pbrMatTest", { 10.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	spg.GenerateBox(4, 4, 4, "pbrMatTest", { -10.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 
 	// add gravity
 	WorldCommands::AddExternalForceCommand efc;
@@ -532,17 +131,18 @@ void JointTestingState::Initialize()
 	efc.type = ExternalForces::Types::Acceleration;
 	GetWorld().ExecuteCommand(efc);
 
-	// modify time
+	// modify the time
 	WorldCommands::SetTimeMultiplierCommand stmc;
 	stmc.timeMultiplierConstant = 1.0f;
 	GetWorld().ExecuteCommand(stmc);
 
-	// position camera
+	// position the camera
 	SetLookAtCameraController slacc(XMFLOAT3(2.0f, 28.0f, -30.0f), XMFLOAT3(2.0f, 10.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f));
 	AppCommands::UpdateCameraCommand ucc;
 	ucc.ccPt = &slacc;
 	GetApp().ExecuteCommand(ucc);
 }
+#pragma optimize("", on)
 
 void JointTestingState::Update(float dt)
 {
@@ -583,19 +183,19 @@ void JointTestingState::Update(float dt)
 	//	command.movementMode = WorldCommands::RigidBodyMovementMode::CPU;
 	//	command.rigidBodyIndex = 0;
 	//	XMStoreFloat3(&command.transform.mT, XMVectorSet(0.0f, 9.0f, 0.0f, 1.0f));
-	//	XMStoreFloat4(&command.transform.mR, XMQuaternionRotationRollPitchYaw(angle, 0.0f, XM_PIDIV2));
+	//	XMStoreFloat4(&command.transform.mR, XMQuaternionRotationRollPitchYaw(angle, 0, 0));
 	//	GetWorld().ExecuteCommand(command);
 
 	//	command.movementMode = WorldCommands::RigidBodyMovementMode::CPU;
 	//	command.rigidBodyIndex = 2;
 	//	XMStoreFloat3(&command.transform.mT, XMVectorSet(-10.0f, 9.0f, 0.0f, 1.0f));
-	//	XMStoreFloat4(&command.transform.mR, XMQuaternionRotationRollPitchYaw(angle, 0.0f, XM_PIDIV2));
+	//	XMStoreFloat4(&command.transform.mR, XMQuaternionRotationRollPitchYaw(angle, 0, 0));
 	//	GetWorld().ExecuteCommand(command);
 
 	//	command.movementMode = WorldCommands::RigidBodyMovementMode::CPU;
 	//	command.rigidBodyIndex = 4;
 	//	XMStoreFloat3(&command.transform.mT, XMVectorSet(10.0f, 9.0f, 0.0f, 1.0f));
-	//	XMStoreFloat4(&command.transform.mR, XMQuaternionRotationRollPitchYaw(angle, 0.0f, XM_PIDIV2));
+	//	XMStoreFloat4(&command.transform.mR, XMQuaternionRotationRollPitchYaw(angle, 0, 0));
 	//	GetWorld().ExecuteCommand(command);
 	//}
 	//else

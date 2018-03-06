@@ -18,7 +18,8 @@ cbuffer cbRenderItem : register(b0)
 
 	uint gRenderItemType;
 	uint gMaterialIndex;
-	uint gParam[RENDER_ITEM_SPECIAL_PARAM_N];
+	uint2 gPadding;
+	uint4 gParam[RENDER_ITEM_SPECIAL_PARAM_N];
 };
 
 // Constant data that varies per pass.

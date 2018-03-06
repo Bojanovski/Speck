@@ -62,6 +62,11 @@
 //
 // Useful definitions
 //
+
+typedef struct { UINT x, y; } UINT2;
+typedef struct { UINT x, y, z; } UINT3;
+typedef struct { UINT x, y, z, w; } UINT4;
+
 namespace Speck
 {
 	class App;

@@ -8,7 +8,7 @@ using namespace DirectX;
 using namespace Speck;
 
 StaticPrimitivesGenerator::StaticPrimitivesGenerator(World &world)
-	: mWorld(world)
+	: WorldUser(world)
 {
 
 }
@@ -30,12 +30,12 @@ void StaticPrimitivesGenerator::GenerateBox(const XMFLOAT3 & scale, const char *
 	aric.staticRenderItem.worldTransform.mS = scale;
 	aric.staticRenderItem.worldTransform.mT = position;
 	XMStoreFloat4(&aric.staticRenderItem.worldTransform.mR, XMQuaternionRotationRollPitchYaw(rotation.x, rotation.y, rotation.z));
-	mWorld.ExecuteCommand(aric);
+	GetWorld().ExecuteCommand(aric);
 
 	// add the collision
 	WorldCommands::AddStaticColliderCommand ascc;
 	ascc.transform.mR = aric.staticRenderItem.worldTransform.mR;
 	ascc.transform.mT = aric.staticRenderItem.worldTransform.mT;
 	ascc.transform.mS = aric.staticRenderItem.worldTransform.mS;
-	mWorld.ExecuteCommand(ascc);
+	GetWorld().ExecuteCommand(ascc);
 }

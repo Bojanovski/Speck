@@ -8,11 +8,11 @@ using namespace DirectX;
 using namespace Speck;
 
 SpeckPrimitivesGenerator::SpeckPrimitivesGenerator(World &world)
-	: mWorld(world)
+	: WorldUser(world)
 {
 	WorldCommands::GetWorldPropertiesCommand gwp;
 	WorldCommands::GetWorldPropertiesCommandResult gwpr;
-	mWorld.ExecuteCommand(gwp, &gwpr);
+	GetWorld().ExecuteCommand(gwp, &gwpr);
 	mSpeckRadius = gwpr.speckRadius;
 	mSpeckMass = 1.0f;
 	mSpeckFrictionCoefficient = 0.6f;
@@ -25,6 +25,14 @@ SpeckPrimitivesGenerator::~SpeckPrimitivesGenerator()
 int SpeckPrimitivesGenerator::GenerateBox(int nx, int ny, int nz, const char *materialName, const XMFLOAT3 & position, const XMFLOAT3 & rotation)
 {
 	XMMATRIX mat = XMMatrixRotationRollPitchYaw(rotation.x, rotation.y, rotation.z) * XMMatrixTranslation(position.x, position.y, position.z);
+	XMFLOAT4X4 transform;
+	XMStoreFloat4x4(&transform, mat);
+	return GenerateBox(nx, ny, nz, materialName, transform);
+}
+
+int SpeckPrimitivesGenerator::GenerateBox(int nx, int ny, int nz, const char * materialName, const XMFLOAT4X4 &transform)
+{
+	XMMATRIX mat = XMLoadFloat4x4(&transform);
 	float dx, dy, dz, width, height, depth, x, y, z;
 	WorldCommands::AddSpecksCommandResult commandResult;
 
@@ -58,7 +66,7 @@ int SpeckPrimitivesGenerator::GenerateBox(int nx, int ny, int nz, const char *ma
 			}
 		}
 	}
-	mWorld.ExecuteCommand(asrbc, &commandResult);
+	GetWorld().ExecuteCommand(asrbc, &commandResult);
 	int specksAdded = (int)asrbc.newSpecks.size();
 
 	// add the mesh skin
@@ -70,7 +78,7 @@ int SpeckPrimitivesGenerator::GenerateBox(int nx, int ny, int nz, const char *ma
 	aric.speckRigidBodyRenderItem.rigidBodyIndex = commandResult.rigidBodyIndex;
 	aric.speckRigidBodyRenderItem.localTransform.MakeIdentity();
 	aric.staticRenderItem.worldTransform.mS = XMFLOAT3(width + 2.0f * mSpeckRadius, height + 2.0f * mSpeckRadius, depth + 2.0f * mSpeckRadius);
-	mWorld.ExecuteCommand(aric);
+	GetWorld().ExecuteCommand(aric);
 
 	return specksAdded;
 }
@@ -309,11 +317,11 @@ int SpeckPrimitivesGenerator::GeneratreConstrainedRigidBodyPair(ConstrainedRigid
 	}
 
 	int specksAdded = 0;
-	mWorld.ExecuteCommand(asrbc1, &commandResult);
+	GetWorld().ExecuteCommand(asrbc1, &commandResult);
 	int rb1 = commandResult.rigidBodyIndex;
 	specksAdded += (int)asrbc1.newSpecks.size();
 
-	mWorld.ExecuteCommand(asrbc2, &commandResult);
+	GetWorld().ExecuteCommand(asrbc2, &commandResult);
 	int rb2 = commandResult.rigidBodyIndex;
 	specksAdded += (int)asrbc2.newSpecks.size();
 
@@ -321,7 +329,7 @@ int SpeckPrimitivesGenerator::GeneratreConstrainedRigidBodyPair(ConstrainedRigid
 	{
 		asrbcJoint.rigidBodyJoint.rigidBodyIndex[0] = rb1;
 		asrbcJoint.rigidBodyJoint.rigidBodyIndex[1] = rb2;
-		mWorld.ExecuteCommand(asrbcJoint);
+		GetWorld().ExecuteCommand(asrbcJoint);
 		specksAdded += (int)asrbcJoint.newSpecks.size();
 	}
 

@@ -1,6 +1,6 @@
 
-#ifndef MAIN_STATE_H
-#define MAIN_STATE_H
+#ifndef SKELETON_TESTING_STATE_H
+#define SKELETON_TESTING_STATE_H
 
 #include <SpeckEngineDefinitions.h>
 #include <App.h>

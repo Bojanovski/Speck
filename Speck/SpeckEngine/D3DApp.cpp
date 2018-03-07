@@ -696,7 +696,7 @@ static HANDLE self;
 
 		for (size_t i = 0; i < adapterList.size(); ++i)
 		{
-			LogAdapterOutputs(adapterList[i]);
+			//LogAdapterOutputs(adapterList[i]);
 			ReleaseCom(adapterList[i]);
 		}
 	}

@@ -4,6 +4,7 @@
 #include <World.h>
 #include <App.h>
 #include "SkeletonTestingState.h"
+#include "SkinnedSkeletonTestingState.h"
 #include "JointTestingState.h"
 
 using namespace Speck;
@@ -25,7 +26,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 		if (!app->Initialize())
 			return 1;
 
-		int result = app->Run(make_unique<SkeletonTestingState>(*ec));
+		int result = app->Run(make_unique<SkinnedSkeletonTestingState>(*ec));
 		return result;
 	}
 	catch (Exception &ex)

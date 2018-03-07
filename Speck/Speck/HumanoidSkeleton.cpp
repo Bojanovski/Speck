@@ -9,6 +9,7 @@
 #pragma warning( pop )
 #include <vector>
 #include <string>
+#include "SpeckPrimitivesGenerator.h"
 
 using namespace std;
 using namespace DirectX;
@@ -166,6 +167,11 @@ void HumanoidSkeleton::ProcessLegPart(FbxNode *node, FbxAnimLayer *animLayer, Wo
 		pos = world.MultT(pos);
 		Conv(&outCommand->newSpecks[i].position, pos);
 	}
+
+	SpeckPrimitivesGenerator speckPrimGen(GetWorld());
+	XMFLOAT4 transform;
+	//XMStoreFloat4x4(&transform, );
+	//speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", transform);
 }
 
 void HumanoidSkeleton::ProcessSpinePart(FbxNode *node, FbxAnimLayer *animLayer, WorldCommands::AddSpecksCommand *outCommand, XMMATRIX *worldOut, XMMATRIX *localOut)

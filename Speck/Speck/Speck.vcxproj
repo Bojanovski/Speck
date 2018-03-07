@@ -172,6 +172,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="SkinnedSkeletonTestingState.cpp" />
     <ClCompile Include="SpeckPrimitivesGenerator.cpp" />
     <ClCompile Include="JointTestingState.cpp" />
     <ClCompile Include="Main.cpp" />
@@ -180,6 +181,7 @@
     <ClCompile Include="StaticPrimitivesGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SkinnedSkeletonTestingState.h" />
     <ClInclude Include="SpeckPrimitivesGenerator.h" />
     <ClInclude Include="JointTestingState.h" />
     <ClInclude Include="SkeletonTestingState.h" />

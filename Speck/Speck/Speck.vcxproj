@@ -175,14 +175,16 @@
     <ClCompile Include="SpeckPrimitivesGenerator.cpp" />
     <ClCompile Include="JointTestingState.cpp" />
     <ClCompile Include="Main.cpp" />
-    <ClCompile Include="MainState.cpp" />
+    <ClCompile Include="SkeletonTestingState.cpp" />
     <ClCompile Include="HumanoidSkeleton.cpp" />
+    <ClCompile Include="StaticPrimitivesGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SpeckPrimitivesGenerator.h" />
     <ClInclude Include="JointTestingState.h" />
-    <ClInclude Include="MainState.h" />
+    <ClInclude Include="SkeletonTestingState.h" />
     <ClInclude Include="HumanoidSkeleton.h" />
+    <ClInclude Include="StaticPrimitivesGenerator.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

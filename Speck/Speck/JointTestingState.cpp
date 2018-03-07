@@ -8,6 +8,7 @@
 #include <InputHandler.h>
 #include <SetLookAtCameraController.h>
 #include "SpeckPrimitivesGenerator.h"
+#include "StaticPrimitivesGenerator.h"
 
 using namespace std;
 using namespace DirectX;
@@ -91,39 +92,25 @@ void JointTestingState::Initialize()
 	cmc_pbr.Roughness = 1.0f;
 	GetApp().ExecuteCommand(cmc_pbr);
 
-	//////////////////////////////////
+	//
+	// Generate the world
+	//
+	StaticPrimitivesGenerator staticPrimGen(GetWorld());
+	staticPrimGen.GenerateBox({ 270.0f, 5.0f, 270.0f }, "pbrMatTest", { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 
-	// Add an object
-	WorldCommands::AddRenderItemCommand cmd3;
-	XMStoreFloat4x4(&cmd3.texTransform, XMMatrixScaling(20.0f, 20.0f, 0.4f));
-	cmd3.geometryName = "shapeGeo";
-	cmd3.materialName = "pbrMatTest";
-	cmd3.meshName = "box";
-	cmd3.type = WorldCommands::RenderItemType::Static;
-	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(270.0f, 5.0f, 270.0f);
-	cmd3.staticRenderItem.worldTransform.mT = XMFLOAT3(0.0f, -1.0f, 0.0f);
-	XMStoreFloat4(&cmd3.staticRenderItem.worldTransform.mR, XMQuaternionRotationRollPitchYaw(0.0f, 0.0f, 0.0f));
-	GetWorld().ExecuteCommand(cmd3);
-	// collision
-	WorldCommands::AddStaticColliderCommand scc;
-	scc.transform.mR = cmd3.staticRenderItem.worldTransform.mR;
-	scc.transform.mT = cmd3.staticRenderItem.worldTransform.mT;
-	scc.transform.mS = cmd3.staticRenderItem.worldTransform.mS;
-	GetWorld().ExecuteCommand(scc);
-
-	SpeckPrimitivesGenerator spg(GetWorld());
+	SpeckPrimitivesGenerator speckPrimGen(GetWorld());
 	int num = 0;
 	for (int i = 0; i < 10; i += 1)
 	{
-		num += spg.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::AsymetricHingeJoint, { 0.0f, 20.0f + i * 5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
-		num += spg.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::HingeJoint, { -10.0f, 20.0f + i * 5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
-		num += spg.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::BallAndSocket, { 10.0f, 20.0f + i * 5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
-		num += spg.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::StiffJoint, { 20.0f, 20.0f + i * 5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+		num += speckPrimGen.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::AsymetricHingeJoint, { 0.0f, 20.0f + i * 5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+		num += speckPrimGen.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::HingeJoint, { -10.0f, 20.0f + i * 5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+		num += speckPrimGen.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::BallAndSocket, { 10.0f, 20.0f + i * 5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+		num += speckPrimGen.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::StiffJoint, { 20.0f, 20.0f + i * 5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 	}
 
-	spg.GenerateBox(4, 4, 4, "pbrMatTest", { 0.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
-	spg.GenerateBox(4, 4, 4, "pbrMatTest", { 10.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
-	spg.GenerateBox(4, 4, 4, "pbrMatTest", { -10.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", { 0.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", { 10.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", { -10.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 
 	// add gravity
 	WorldCommands::AddExternalForceCommand efc;

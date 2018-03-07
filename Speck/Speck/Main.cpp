@@ -3,7 +3,7 @@
 #include <EngineCore.h>
 #include <World.h>
 #include <App.h>
-#include "MainState.h"
+#include "SkeletonTestingState.h"
 #include "JointTestingState.h"
 
 using namespace Speck;
@@ -23,21 +23,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 		unique_ptr<App> app;
 		CreateSpeckApp(hInstance, 0.25f, 100, 1000, &ec, &w, &app);
 		if (!app->Initialize())
-			return 0;
+			return 1;
 
-		int lol = app->Run(make_unique<JointTestingState>(*ec));
-
-
-		app.reset();
-		w.reset();
-		ec.reset();
-
-		return lol;
-
+		int result = app->Run(make_unique<SkeletonTestingState>(*ec));
+		return result;
 	}
-	catch ( Exception &ex)
+	catch (Exception &ex)
 	{
 		MessageBox(nullptr, ex.Message(), L"Unhandled exception", MB_OK);
-		return 0;
+		return 1;
 	}
 }

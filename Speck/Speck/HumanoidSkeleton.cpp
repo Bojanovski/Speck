@@ -2,18 +2,21 @@
 #include "HumanoidSkeleton.h"
 #include <World.h>
 #include <App.h>
+
+#include "SpeckPrimitivesGenerator.h"
+#include "Json.h"
+
+// FBX
 #pragma warning( push )
 #pragma warning( disable : 4244 )  
 #include <fbxsdk.h>
 #include <fbxsdk\utils\fbxgeometryconverter.h>
 #pragma warning( pop )
-#include <vector>
-#include <string>
-#include "SpeckPrimitivesGenerator.h"
 
 using namespace std;
 using namespace DirectX;
 using namespace Speck;
+using json = nlohmann::json;
 
 void Conv(fbxsdk::FbxDouble3 *out, const DirectX::XMFLOAT3 &in)
 {
@@ -56,496 +59,80 @@ void Conv(DirectX::XMFLOAT4X4 *out, const fbxsdk::FbxDouble4x4 &in)
 	}
 }
 
-void HumanoidSkeleton::ProcessRoot(FbxNode *node, FbxAnimLayer *animLayer, WorldCommands::AddSpecksCommand *outCommand, XMMATRIX *localOut)
+void HumanoidSkeleton::ProcessBone(FbxNode *node, WorldCommands::AddSpecksCommand *outCommand, const string &boneName)
 {
-	FbxPropertyT<FbxDouble3> *nodeTranslationProp = &node->LclTranslation;
-	FbxDouble3 translation = nodeTranslationProp->Get(); // get default (bind pose)
-	*localOut = XMMatrixIdentity();
-}
-
-void HumanoidSkeleton::ProcessHips(FbxNode *node, FbxAnimLayer *animLayer, WorldCommands::AddSpecksCommand *outCommand, XMMATRIX *localOut)
-{
-	FbxAMatrix world = node->EvaluateGlobalTransform();
-	int nx = 3;
-	int ny = 2;
-	int nz = 2;
-	float width = (nx - 1) * 20.0f * mSpeckRadius;
-	float height = (ny - 1) * 20.0f * mSpeckRadius;
-	float depth = (nz - 1) * 20.0f * mSpeckRadius;
-	float x = -0.5f*width;
-	float y = -0.5f*height;
-	float z = -0.5f*depth;
-	float dx = width / (nx - 1);
-	float dy = height / (ny - 1);
-	float dz = depth / (nz - 1);
-
-	// Calculate local transform
-	FbxQuaternion rot = world.GetQ();
-	rot.Inverse();
-	XMFLOAT4 rotF;
-	Conv(&rotF, rot);
-	XMVECTOR rotV = XMLoadFloat4(&rotF);
-	XMMATRIX rotM = XMMatrixRotationQuaternion(rotV);
-	*localOut = XMMatrixTranslation(0.0f, y, 0.0f) * rotM;
-
-	for (int i = 0; i < nx; ++i)
-	{
-		for (int j = 0; j < ny; ++j)
-		{
-			for (int k = 0; k < nz; ++k)
-			{
-				WorldCommands::NewSpeck speck;
-				// Position instanced along a 3D grid.
-				XMVECTOR pos = XMVectorSet(i*dx + x, j*dy + y, k*dz + z, 1.0f);
-				pos = XMVector3TransformCoord(pos, *localOut);
-				XMStoreFloat3(&speck.position, pos);
-				outCommand->newSpecks.push_back(speck);
-			}
-		}
-	}
-
-	// Transfrom with the node transform matrix
-	for (int i = 0; i < outCommand->newSpecks.size(); ++i)
-	{
-		FbxDouble3 pos;
-		Conv(&pos, outCommand->newSpecks[i].position);
-		pos = world.MultT(pos);
-		Conv(&outCommand->newSpecks[i].position, pos);
-	}
-}
-
-void HumanoidSkeleton::ProcessLegPart(FbxNode *node, FbxAnimLayer *animLayer, WorldCommands::AddSpecksCommand *outCommand, XMMATRIX *worldOut, XMMATRIX *localOut)
-{
+	// FBX
 	FbxAMatrix world = node->EvaluateGlobalTransform();
 	XMFLOAT4X4 worldF;
 	Conv(&worldF, world);
-	*worldOut = XMLoadFloat4x4(&worldF);
+	XMMATRIX worldXM = XMLoadFloat4x4(&worldF);
+	XMVECTOR s, r, t;
+	XMMatrixDecompose(&s, &r, &t, worldXM);
+	XMMATRIX worldWithoutScale = XMMatrixRotationQuaternion(r) * XMMatrixTranslationFromVector(t);
 
-	int nx = 2;
-	int ny = 7;
-	int nz = 2;
-	float width		= (nx - 1) * 20.0f * mSpeckRadius;
-	float height	= (ny - 1) * 20.0f * mSpeckRadius;
-	float depth		= (nz - 1) * 20.0f * mSpeckRadius;
-	float x = -0.5f*width;
-	float y = -0.5f*height;
-	float z = -0.5f*depth;
-	float dx = width / (nx - 1);
-	float dy = height / (ny - 1);
-	float dz = depth / (nz - 1);
+	// Calculate the center of mass
+	XMVECTOR com = XMVectorZero();
+	for (int i = 0; i < outCommand->newSpecks.size(); i++)
+	{
+		com += XMLoadFloat3(&outCommand->newSpecks[i].position);
+	}
+	com /= (float)outCommand->newSpecks.size();
 
 	// Calculate local transform
+	FbxVector4 sca = world.GetS();
+	XMVECTOR invSca = XMVectorSet(1.0f / (float)sca[0], 1.0f / (float)sca[1], 1.0f / (float)sca[2], 1.0f);
 	FbxQuaternion rot = world.GetQ();
 	rot.Inverse();
 	XMFLOAT4 rotF;
 	Conv(&rotF, rot);
 	XMVECTOR rotV = XMLoadFloat4(&rotF);
 	XMMATRIX rotM = XMMatrixRotationQuaternion(rotV);
-	*localOut = XMMatrixTranslation(0.0f, y - /*room for joint*/ 20.0f * mSpeckRadius, 0.0f) * rotM;
-
-	for (int i = 0; i < nx; ++i)
-	{
-		for (int j = 0; j < ny; ++j)
-		{
-			for (int k = 0; k < nz; ++k)
-			{
-				WorldCommands::NewSpeck speck;
-				// Position instanced along a 3D grid.
-				XMVECTOR pos = XMVectorSet(i*dx + x, j*dy + y, k*dz + z, 1.0f);
-				pos = XMVector3TransformCoord(pos, *localOut);
-				XMStoreFloat3(&speck.position, pos);
-				outCommand->newSpecks.push_back(speck);
-			}
-		}
-	}
+	XMMATRIX local = XMMatrixTranslationFromVector(com);
 
 	// Transfrom with the node transform matrix
 	for (int i = 0; i < outCommand->newSpecks.size(); ++i)
 	{
-		FbxDouble3 pos;
-		Conv(&pos, outCommand->newSpecks[i].position);
-		pos = world.MultT(pos);
-		Conv(&outCommand->newSpecks[i].position, pos);
+		XMVECTOR posFinal = XMVector3TransformCoord(XMLoadFloat3(&outCommand->newSpecks[i].position), worldWithoutScale);
+		XMStoreFloat3(&outCommand->newSpecks[i].position, posFinal);
 	}
 
-	SpeckPrimitivesGenerator speckPrimGen(GetWorld());
-	XMFLOAT4 transform;
-	//XMStoreFloat4x4(&transform, );
-	//speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", transform);
-}
-
-void HumanoidSkeleton::ProcessSpinePart(FbxNode *node, FbxAnimLayer *animLayer, WorldCommands::AddSpecksCommand *outCommand, XMMATRIX *worldOut, XMMATRIX *localOut)
-{
-	FbxAMatrix world = node->EvaluateGlobalTransform();
-	XMFLOAT4X4 worldF;
-	Conv(&worldF, world);
-	*worldOut = XMLoadFloat4x4(&worldF);
-
-	int nx = 4;
-	int ny = 1;
-	int nz = 4;
-	float width = (nx - 1) * 20.0f * mSpeckRadius;
-	float height = (ny - 1) * 20.0f * mSpeckRadius;
-	float depth = (nz - 1) * 20.0f * mSpeckRadius;
-	float x = -0.5f*width;
-	float y = -0.5f*height;
-	float z = -0.5f*depth;
-	float dx = (nx > 1) ? width / (nx - 1) : 0.0f;
-	float dy = (ny > 1) ? height / (ny - 1) : 0.0f;
-	float dz = (nz > 1) ? depth / (nz - 1) : 0.0f;
-
-	// Calculate local transform
-	FbxQuaternion rot = world.GetQ();
-	rot.Inverse();
-	XMFLOAT4 rotF;
-	Conv(&rotF, rot);
-	XMVECTOR rotV = XMLoadFloat4(&rotF);
-	XMMATRIX rotM = XMMatrixRotationQuaternion(rotV);
-	*localOut = XMMatrixTranslation(0.0f, y , 0.0f) * rotM;
-
-	for (int i = 0; i < nx; ++i)
+	// Add the node to the world
+	WorldCommands::AddSpecksCommandResult commandResult;
+	if (outCommand->newSpecks.size() > 0)
 	{
-		for (int j = 0; j < ny; ++j)
-		{
-			for (int k = 0; k < nz; ++k)
-			{
-				//if (j == 0 && (i == 1 || i == 2)) continue;
-				WorldCommands::NewSpeck speck;
-				// Position instanced along a 3D grid.
-				XMVECTOR pos = XMVectorSet(i*dx + x, /*fabsf(i*dx + x) * 0.1f*/ + j*dy + y, k*dz + z, 1.0f);
-				pos = XMVector3TransformCoord(pos, *localOut);
-				XMStoreFloat3(&speck.position, pos);
-				outCommand->newSpecks.push_back(speck);
-			}
-		}
+		GetWorld().ExecuteCommand(*outCommand, &commandResult);
+		mNodesAnimData[boneName].index = commandResult.rigidBodyIndex;
 	}
-
-	// Transfrom with the node transform matrix
-	for (int i = 0; i < outCommand->newSpecks.size(); ++i)
-	{
-		FbxDouble3 pos;
-		Conv(&pos, outCommand->newSpecks[i].position);
-		pos = world.MultT(pos);
-		Conv(&outCommand->newSpecks[i].position, pos);
-	}
-}
-
-void HumanoidSkeleton::ProcessChest(FbxNode *node, FbxAnimLayer *animLayer, WorldCommands::AddSpecksCommand *outCommand, XMMATRIX *worldOut, XMMATRIX *localOut)
-{
-	FbxAMatrix world = node->EvaluateGlobalTransform();
-	XMFLOAT4X4 worldF;
-	Conv(&worldF, world);
-	*worldOut = XMLoadFloat4x4(&worldF);
-
-	int nx = 4;
-	int ny = 1;
-	int nz = 4;
-	float width = (nx - 1) * 20.0f * mSpeckRadius;
-	float height = (ny - 1) * 20.0f * mSpeckRadius;
-	float depth = (nz - 1) * 20.0f * mSpeckRadius;
-	float x = -0.5f*width;
-	float y = -0.5f*height;
-	float z = -0.5f*depth;
-	float dx = (nx > 1) ? width / (nx - 1) : 0.0f;
-	float dy = (ny > 1) ? height / (ny - 1) : 0.0f;
-	float dz = (nz > 1) ? depth / (nz - 1) : 0.0f;
-
-	// Calculate local transform
-	FbxQuaternion rot = world.GetQ();
-	rot.Inverse();
-	XMFLOAT4 rotF;
-	Conv(&rotF, rot);
-	XMVECTOR rotV = XMLoadFloat4(&rotF);
-	XMMATRIX rotM = XMMatrixRotationQuaternion(rotV);
-	*localOut = XMMatrixTranslation(0.0f, y - /*just a little correction*/ 8.0f * mSpeckRadius, 0.0f) * rotM;
-
-	for (int i = 0; i < nx; ++i)
-	{
-		for (int j = 0; j < ny; ++j)
-		{
-			for (int k = 0; k < nz; ++k)
-			{
-				//if (j == 0 && (i == 1 || i == 2)) continue;
-				WorldCommands::NewSpeck speck;
-				// Position instanced along a 3D grid.
-				XMVECTOR pos = XMVectorSet(i*dx + x, /*fabsf(i*dx + x) * 0.1f +*/ j*dy + y, k*dz + z, 1.0f);
-				pos = XMVector3TransformCoord(pos, *localOut);
-				XMStoreFloat3(&speck.position, pos);
-				outCommand->newSpecks.push_back(speck);
-			}
-		}
-	}
-
-	// second layer (smaller)
-	nx = 2;
-	ny = 1;
-	nz = 4;
-	width = (nx - 1) * 20.0f * mSpeckRadius;
-	height = (ny - 1) * 20.0f * mSpeckRadius;
-	depth = (nz - 1) * 20.0f * mSpeckRadius;
-	x = -0.5f*width;
-	y = -0.5f*height + 20.0f * mSpeckRadius;
-	z = -0.5f*depth;
-	dx = (nx > 1) ? width / (nx - 1) : 0.0f;
-	dy = (ny > 1) ? height / (ny - 1) : 0.0f;
-	dz = (nz > 1) ? depth / (nz - 1) : 0.0f;
-
-	for (int i = 0; i < nx; ++i)
-	{
-		for (int j = 0; j < ny; ++j)
-		{
-			for (int k = 0; k < nz; ++k)
-			{
-				//if (j == 0 && (i == 1 || i == 2)) continue;
-				WorldCommands::NewSpeck speck;
-				// Position instanced along a 3D grid.
-				XMVECTOR pos = XMVectorSet(i*dx + x, /*fabsf(i*dx + x) * 0.1f +*/ j*dy + y, k*dz + z, 1.0f);
-				pos = XMVector3TransformCoord(pos, *localOut);
-				XMStoreFloat3(&speck.position, pos);
-				outCommand->newSpecks.push_back(speck);
-			}
-		}
-	}
-
-	// Transfrom with the node transform matrix
-	for (int i = 0; i < outCommand->newSpecks.size(); ++i)
-	{
-		FbxDouble3 pos;
-		Conv(&pos, outCommand->newSpecks[i].position);
-		pos = world.MultT(pos);
-		Conv(&outCommand->newSpecks[i].position, pos);
-	}
-}
-
-void HumanoidSkeleton::ProcessShoulder(FbxNode *node, FbxAnimLayer *animLayer, WorldCommands::AddSpecksCommand *outCommand, XMMATRIX *worldOut, XMMATRIX *localOut, bool right)
-{
-	FbxAMatrix world = node->EvaluateGlobalTransform();
-	XMFLOAT4X4 worldF;
-	Conv(&worldF, world);
-	*worldOut = XMLoadFloat4x4(&worldF);
-
-	// Calculate local transform
-	FbxQuaternion rot = world.GetQ();
-	rot.Inverse();
-	XMFLOAT4 rotF;
-	Conv(&rotF, rot);
-	XMVECTOR rotV = XMLoadFloat4(&rotF);
-	XMMATRIX rotM = XMMatrixRotationQuaternion(rotV);
-	float shoulderHalfWidth = 10.0f * mSpeckRadius;
-	float sign = (right) ? -1.0f : 1.0f;
-	*localOut = XMMatrixTranslation(sign * shoulderHalfWidth, 0.0f, 0.0f) * rotM;
-
-
-	WorldCommands::NewSpeck speck;
-	XMVECTOR pos;
-
-	pos = XMVector3TransformCoord(XMVectorSet(10.0f * mSpeckRadius, 0.0f, -10.0f * mSpeckRadius * 0.70716f, 1.0f), *localOut);
-	XMStoreFloat3(&speck.position, pos);
-	outCommand->newSpecks.push_back(speck);
-
-	pos = XMVector3TransformCoord(XMVectorSet(-10.0f * mSpeckRadius, 0.0f, -10.0f * mSpeckRadius * 0.70716f, 1.0f), *localOut);
-	XMStoreFloat3(&speck.position, pos);
-	outCommand->newSpecks.push_back(speck);
-
-	//pos = XMVector3TransformCoord(XMVectorSet(0.0f, 10.0f * mSpeckRadius, 10.0f * mSpeckRadius * 0.70716f, 1.0f), *localOut);
-	//XMStoreFloat3(&speck.position, pos);
-	//outCommand->newSpecks.push_back(speck);
-
-	pos = XMVector3TransformCoord(XMVectorSet(0.0f, -10.0f * mSpeckRadius, 10.0f * mSpeckRadius * 0.70716f, 1.0f), *localOut);
-	XMStoreFloat3(&speck.position, pos);
-	outCommand->newSpecks.push_back(speck);
-
-	// Transfrom with the node transform matrix
-	for (int i = 0; i < outCommand->newSpecks.size(); ++i)
-	{
-		FbxDouble3 pos;
-		Conv(&pos, outCommand->newSpecks[i].position);
-		pos = world.MultT(pos);
-		Conv(&outCommand->newSpecks[i].position, pos);
-	}
-}
-
-void HumanoidSkeleton::ProcessArmPart(FbxNode *node, FbxAnimLayer *animLayer, WorldCommands::AddSpecksCommand *outCommand, XMMATRIX *worldOut, XMMATRIX *localOut, bool right)
-{
-	FbxAMatrix world = node->EvaluateGlobalTransform();
-	XMFLOAT4X4 worldF;
-	Conv(&worldF, world);
-	*worldOut = XMLoadFloat4x4(&worldF);
-
-	int nx = 5;
-	int ny = 2;
-	int nz = 2;
-	float width = (nx - 1) * 20.0f * mSpeckRadius;
-	float height = (ny - 1) * 20.0f * mSpeckRadius;
-	float depth = (nz - 1) * 20.0f * mSpeckRadius;
-	float x = -0.5f*width;
-	float y = -0.5f*height;
-	float z = -0.5f*depth;
-	float dx = width / (nx - 1);
-	float dy = height / (ny - 1);
-	float dz = depth / (nz - 1);
-
-	// Calculate local transform
-	FbxQuaternion rot = world.GetQ();
-	rot.Inverse();
-	XMFLOAT4 rotF;
-	Conv(&rotF, rot);
-	XMVECTOR rotV = XMLoadFloat4(&rotF);
-	XMMATRIX rotM = XMMatrixRotationQuaternion(rotV);
-	float sign = (right) ? -1.0f : 1.0f;
-	*localOut = XMMatrixTranslation(sign * (-x + /*room for joint*/ 0.707f * 20.0f * mSpeckRadius), 0.0f, 0.0f) * rotM;
-
-	for (int i = 0; i < nx; ++i)
-	{
-		for (int j = 0; j < ny; ++j)
-		{
-			for (int k = 0; k < nz; ++k)
-			{
-				WorldCommands::NewSpeck speck;
-				// Position instanced along a 3D grid.
-				XMVECTOR pos = XMVectorSet(i*dx + x, j*dy + y, k*dz + z, 1.0f);
-				pos = XMVector3TransformCoord(pos, *localOut);
-				XMStoreFloat3(&speck.position, pos);
-				outCommand->newSpecks.push_back(speck);
-			}
-		}
-	}
-
-	// Transfrom with the node transform matrix
-	for (int i = 0; i < outCommand->newSpecks.size(); ++i)
-	{
-		FbxDouble3 pos;
-		Conv(&pos, outCommand->newSpecks[i].position);
-		pos = world.MultT(pos);
-		Conv(&outCommand->newSpecks[i].position, pos);
-	}
-}
-
-void HumanoidSkeleton::ProcessNeck(FbxNode * node, FbxAnimLayer * animLayer, WorldCommands::AddSpecksCommand * outCommand, XMMATRIX * worldOut, XMMATRIX * localOut)
-{
-	FbxAMatrix world = node->EvaluateGlobalTransform();
-	XMFLOAT4X4 worldF;
-	Conv(&worldF, world);
-	*worldOut = XMLoadFloat4x4(&worldF);
-
-	// Calculate local transform
-	FbxQuaternion rot = world.GetQ();
-	rot.Inverse();
-	XMFLOAT4 rotF;
-	Conv(&rotF, rot);
-	XMVECTOR rotV = XMLoadFloat4(&rotF);
-	XMMATRIX rotM = XMMatrixRotationQuaternion(rotV);
-	*localOut = XMMatrixTranslation(0.0f, 0.0f, 0.0f) * rotM;
-
-
-	WorldCommands::NewSpeck speck;
-	XMVECTOR pos;
-
-	pos = XMVector3TransformCoord(XMVectorSet(-10.0f * mSpeckRadius, 0.0f, 10.0f * mSpeckRadius, 1.0f), *localOut);
-	XMStoreFloat3(&speck.position, pos);
-	outCommand->newSpecks.push_back(speck);
-
-	pos = XMVector3TransformCoord(XMVectorSet(10.0f * mSpeckRadius, 0.0f, 10.0f * mSpeckRadius, 1.0f), *localOut);
-	XMStoreFloat3(&speck.position, pos);
-	outCommand->newSpecks.push_back(speck);
-
-	pos = XMVector3TransformCoord(XMVectorSet(-10.0f * mSpeckRadius, 0.0f, -10.0f * mSpeckRadius, 1.0f), *localOut);
-	XMStoreFloat3(&speck.position, pos);
-	outCommand->newSpecks.push_back(speck);
-
-	pos = XMVector3TransformCoord(XMVectorSet(10.0f * mSpeckRadius, 0.0f, -10.0f * mSpeckRadius, 1.0f), *localOut);
-	XMStoreFloat3(&speck.position, pos);
-	outCommand->newSpecks.push_back(speck);
-
-	// Transfrom with the node transform matrix
-	for (int i = 0; i < outCommand->newSpecks.size(); ++i)
-	{
-		FbxDouble3 pos;
-		Conv(&pos, outCommand->newSpecks[i].position);
-		pos = world.MultT(pos);
-		Conv(&outCommand->newSpecks[i].position, pos);
-	}
-}
-
-void HumanoidSkeleton::ProcessHead(fbxsdk::FbxNode * node, fbxsdk::FbxAnimLayer * animLayer, Speck::WorldCommands::AddSpecksCommand * outCommand, DirectX::XMMATRIX * worldOut, DirectX::XMMATRIX * localOut)
-{
-	FbxAMatrix world = node->EvaluateGlobalTransform();
-	XMFLOAT4X4 worldF;
-	Conv(&worldF, world);
-	*worldOut = XMLoadFloat4x4(&worldF);
-
-	int nx = 3;
-	int ny = 3;
-	int nz = 3;
-	float width = (nx - 1) * 20.0f * mSpeckRadius;
-	float height = (ny - 1) * 20.0f * mSpeckRadius;
-	float depth = (nz - 1) * 20.0f * mSpeckRadius;
-	float x = -0.5f*width;
-	float y = -0.5f*height;
-	float z = -0.5f*depth;
-	float dx = width / (nx - 1);
-	float dy = height / (ny - 1);
-	float dz = depth / (nz - 1);
-
-	// Calculate local transform
-	FbxQuaternion rot = world.GetQ();
-	rot.Inverse();
-	XMFLOAT4 rotF;
-	Conv(&rotF, rot);
-	XMVECTOR rotV = XMLoadFloat4(&rotF);
-	XMMATRIX rotM = XMMatrixRotationQuaternion(rotV);
-	*localOut = XMMatrixTranslation(0.0f, -y, 0.0f) * rotM;
-
-	for (int i = 0; i < nx; ++i)
-	{
-		for (int j = 0; j < ny; ++j)
-		{
-			for (int k = 0; k < nz; ++k)
-			{
-				WorldCommands::NewSpeck speck;
-				// Position instanced along a 3D grid.
-				XMVECTOR pos = XMVectorSet(i*dx + x, j*dy + y, k*dz + z, 1.0f);
-				pos = XMVector3TransformCoord(pos, *localOut);
-				XMStoreFloat3(&speck.position, pos);
-				outCommand->newSpecks.push_back(speck);
-			}
-		}
-	}
-
-	// Transfrom with the node transform matrix
-	for (int i = 0; i < outCommand->newSpecks.size(); ++i)
-	{
-		FbxDouble3 pos;
-		Conv(&pos, outCommand->newSpecks[i].position);
-		pos = world.MultT(pos);
-		Conv(&outCommand->newSpecks[i].position, pos);
-	}
+	mNodesAnimData[boneName].numberOfSpecks = (UINT)outCommand->newSpecks.size();
+	XMStoreFloat3(&mNodesAnimData[boneName].centerOfMass, com);
+	XMStoreFloat3(&mNodesAnimData[boneName].inverseScale, invSca);
+	mNodesAnimData[boneName].inverseRotation = rotF;
+	XMStoreFloat4x4(&mNodesAnimData[boneName].bindPoseWorldTransform, worldWithoutScale);
 }
 
 void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp)
 {
-	// Create the body made out of specks
+	// Parse the JSON file
+	json j;
+	try
+	{
+		j = json::parse(mSpeckBodyStructureJSONFile);
+	}
+	catch (const exception& ex)
+	{
+		(void)ex; // Mark the object as "used" by casting it to void. It has no influence on the generated machine code, but it will suppress the compiler warning.
+		LOG(TEXT("Exception caught while parsing a json file: ") + StrToWStr(mName) + TEXT(" ."), WARNING);
+		LOG(StrToWStr(ex.what()), ERROR);
+	}
+
+	// Create a body made out of specks
 	int numStacks = mScene->GetSrcObjectCount<FbxAnimStack>();
 	FbxAnimStack* pAnimStack = FbxCast<FbxAnimStack>(mScene->GetSrcObject<FbxAnimStack>(0));
-	int numAnimLayers = pAnimStack->GetMemberCount<FbxAnimLayer>();
-	FbxAnimLayer* lAnimLayer = pAnimStack->GetMember<FbxAnimLayer>(0);
-	int numAnimCurveNodes = lAnimLayer->GetMemberCount<FbxNode>();
 	vector<FbxNode *> nodeStack;
 	FbxNode *root = mScene->GetRootNode();
 	nodeStack.push_back(root);
 
 	// Body creation logic
-	bool addKnee = false;
-	bool addElbow = false;
-	bool addShoulder = false;
-	bool addHip = false;
-	bool addSpine = false;
-	bool addSpine1 = false;
-	bool addChest = false;
-	bool addShoulderChest = false;
-	bool addNeck = false;
-	bool addHead = false;
-	int lastAddedRigidBodyIndex = -1;
 	FbxNode *skinNode = nullptr;
 
 	while (!nodeStack.empty())
@@ -555,412 +142,52 @@ void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp)
 		nodeStack.pop_back();
 
 		//FbxNodeAttribute* lNodeAttribute = node->GetNodeAttribute();
-		string name = node->GetName();
-		string originalName = name;
+		string boneName = node->GetName();
 		WorldCommands::AddSpecksCommand command;
-		WorldCommands::AddSpecksCommandResult commandResult;
 		command.speckType = WorldCommands::SpeckType::RigidBody;
+		command.speckMass = 1.0f;
 		command.frictionCoefficient = 0.2f;
-		XMMATRIX worldTransform = XMMatrixIdentity();
-		XMMATRIX localTransform = XMMatrixIdentity();
-		if (name.find("RootNode") != string::npos)
-		{
-			ProcessRoot(node, lAnimLayer, &command, &localTransform);
-			name = "RootNode";
-		}
-		else if (name.find("Hips") != string::npos)
-		{
-			ProcessHips(node, lAnimLayer, &command, &localTransform);
-			name = "Hips";
-		}
-		else if (name.find("LeftUpLeg") != string::npos)
-		{
-			ProcessLegPart(node, lAnimLayer, &command, &worldTransform, &localTransform);
-			addHip = true;
-			name = "LeftUpLeg";
-		}
-		else if (name.find("RightUpLeg") != string::npos)
-		{
-			ProcessLegPart(node, lAnimLayer, &command, &worldTransform, &localTransform);
-			addHip = true;
-			name = "RightUpLeg";
-		}
-		else if (name.find("LeftLeg") != string::npos)
-		{
-			ProcessLegPart(node, lAnimLayer, &command, &worldTransform, &localTransform);
-			addKnee = true;
-			name = "LeftLeg";
-		}
-		else if (name.find("RightLeg") != string::npos)
-		{
-			ProcessLegPart(node, lAnimLayer, &command, &worldTransform, &localTransform);
-			addKnee = true;
-			name = "RightLeg";
-		}
-		else if (name.find("Spine") != string::npos && name.find("Spine1") == string::npos && name.find("Spine2") == string::npos)
-		{
-			ProcessSpinePart(node, lAnimLayer, &command, &worldTransform, &localTransform);
-			addSpine = true;
-			name = "Spine";
-		}
-		else if (name.find("Spine1") != string::npos)
-		{
-			ProcessSpinePart(node, lAnimLayer, &command, &worldTransform, &localTransform);
-			addSpine1 = true;
-			name = "Spine1";
-		}
-		else if (name.find("Spine2") != string::npos)
-		{
-			ProcessChest(node, lAnimLayer, &command, &worldTransform, &localTransform);
-			addChest = true;
-			name = "Spine2";
-		}
-		else if (name.find("RightShoulder") != string::npos)
-		{
-			ProcessShoulder(node, lAnimLayer, &command, &worldTransform, &localTransform, true);
-			addShoulderChest = true;
-			name = "RightShoulder";
-		}
-		else if (name.find("LeftShoulder") != string::npos)
-		{
-			ProcessShoulder(node, lAnimLayer, &command, &worldTransform, &localTransform, false);
-			addShoulderChest = true;
-			name = "LeftShoulder";
-		}
-		else if (name.find("RightArm") != string::npos)
-		{
-			ProcessArmPart(node, lAnimLayer, &command, &worldTransform, &localTransform, true);
-			addShoulder = true;
-			name = "RightArm";
-		}
-		else if (name.find("LeftArm") != string::npos)
-		{
-			ProcessArmPart(node, lAnimLayer, &command, &worldTransform, &localTransform, false);
-			addShoulder = true;
-			name = "LeftArm";
-		}
-		else if (name.find("RightForeArm") != string::npos)
-		{
-			ProcessArmPart(node, lAnimLayer, &command, &worldTransform, &localTransform, true);
-			addElbow = true;
-			name = "RightForeArm";
-		}
-		else if (name.find("LeftForeArm") != string::npos)
-		{
-			ProcessArmPart(node, lAnimLayer, &command, &worldTransform, &localTransform, false);
-			addElbow = true;
-			name = "LeftForeArm";
-		}
-		else if (name.find("Neck") != string::npos)
-		{
-			ProcessNeck(node, lAnimLayer, &command, &worldTransform, &localTransform);
-			addNeck = true;
-			name = "Neck";
-		}
-		else if (name.find("Head") != string::npos && name.find("End") == string::npos)
-		{
-			ProcessHead(node, lAnimLayer, &command, &worldTransform, &localTransform);
-			addHead = true;
-			name = "Head";
-		}
 
-		// Save the name in the dictionary
-		mNamesDictionary[originalName] = name;
-
-		if (command.newSpecks.size() > 0)
+		// find the name in the json
+		json::iterator it = j.find("bones");
+		if (it != j.end())
 		{
-			GetWorld().ExecuteCommand(command, &commandResult);
-			mNodesAnimData[name].index = commandResult.rigidBodyIndex;
-			XMStoreFloat4x4(&mNodesAnimData[name].localTransform, localTransform);
-
-			if (addHip)
+			json list = it.value();
+			for (json::iterator listIt = list.begin(); listIt != list.end(); ++listIt)
 			{
-				addHip = false;
-				WorldCommands::AddSpecksCommand commandForJoint;
-				commandForJoint.speckType = WorldCommands::SpeckType::RigidBodyJoint;
-				commandForJoint.frictionCoefficient = command.frictionCoefficient;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[0] = mNodesAnimData["Hips"].index;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[1] = commandResult.rigidBodyIndex;
-
-				XMVECTOR jointPosL1 = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
-				XMVECTOR jointPosW1 = XMVector3TransformCoord(jointPosL1, worldTransform);
-				commandForJoint.newSpecks.resize(1);
-				XMStoreFloat3(&commandForJoint.newSpecks[0].position, jointPosW1);
-				GetWorld().ExecuteCommand(commandForJoint);
-			}
-
-			if (addKnee)
-			{
-				addKnee = false;
-				WorldCommands::AddSpecksCommand commandForJoint;
-				commandForJoint.speckType = WorldCommands::SpeckType::RigidBodyJoint;
-				commandForJoint.frictionCoefficient = command.frictionCoefficient;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[0] = lastAddedRigidBodyIndex;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[1] = commandResult.rigidBodyIndex;
-
-				XMVECTOR jointPosL1 = XMVectorSet(-10.0f * mSpeckRadius, 0.0f, -10.0f * mSpeckRadius, 1.0f);
-				XMVECTOR jointPosW1 = XMVector3TransformCoord(jointPosL1, worldTransform);
-				XMVECTOR jointPosL2 = XMVectorSet(10.0f * mSpeckRadius, 0.0f, -10.0f * mSpeckRadius, 1.0f);
-				XMVECTOR jointPosW2 = XMVector3TransformCoord(jointPosL2, worldTransform);
-				commandForJoint.newSpecks.resize(2);
-				XMStoreFloat3(&commandForJoint.newSpecks[0].position, jointPosW1);
-				XMStoreFloat3(&commandForJoint.newSpecks[1].position, jointPosW2);
-				GetWorld().ExecuteCommand(commandForJoint);
-			}
-
-			if (addSpine)
-			{
-				addSpine = false;
-				WorldCommands::AddSpecksCommand commandForJoint;
-				commandForJoint.speckType = WorldCommands::SpeckType::RigidBodyJoint;
-				commandForJoint.frictionCoefficient = command.frictionCoefficient;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[0] = mNodesAnimData["Hips"].index;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[1] = commandResult.rigidBodyIndex;
-
-				commandForJoint.newSpecks.clear();
-				int nx = 4;
-				int ny = 4;
-				float width = (nx - 1) * 20.0f * mSpeckRadius;
-				float height = (ny - 1) * 20.0f * mSpeckRadius;
-				float x = -0.5f*width;
-				float y = -0.5f*height;
-				float dx = width / (nx - 1);
-				float dy = height / (ny - 1);
-
-				for (int i = 0; i < nx; ++i)
+				// first check if there is the name we are looking for in this json bone
+				json jsonBone = listIt.value();
+				json jsonBoneNamesList = jsonBone.at("bones").get<json>();
+				string jsonBoneName = "";
+				bool boneFound = false;
+				for (json::iterator boneNamesListIt = jsonBoneNamesList.begin(); boneNamesListIt != jsonBoneNamesList.end(); ++boneNamesListIt)
 				{
-					for (int j = 0; j < ny; ++j)
+					jsonBoneName = boneNamesListIt.value().get<string>();
+					if (boneName.compare(jsonBoneName) == 0)
 					{
-						XMVECTOR jointPosL = XMVectorSet(i*dx + x, -20.0f * mSpeckRadius, j*dy + y, 1.0f);
-						XMVECTOR jointPosW = XMVector3TransformCoord(jointPosL, worldTransform);
-						WorldCommands::NewSpeck ns;
-						XMStoreFloat3(&ns.position, jointPosW);
-						commandForJoint.newSpecks.push_back(ns);
+						boneFound = true;
+						break;
 					}
 				}
-				GetWorld().ExecuteCommand(commandForJoint);
-			}
 
-			if (addSpine1)
-			{
-				addSpine1 = false;
-				WorldCommands::AddSpecksCommand commandForJoint;
-				commandForJoint.speckType = WorldCommands::SpeckType::RigidBodyJoint;
-				commandForJoint.frictionCoefficient = command.frictionCoefficient;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[0] = lastAddedRigidBodyIndex;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[1] = commandResult.rigidBodyIndex;
-
-				commandForJoint.newSpecks.clear();
-				int nx = 4;
-				int ny = 4;
-				float width = (nx - 1) * 20.0f * mSpeckRadius;
-				float height = (ny - 1) * 20.0f * mSpeckRadius;
-				float x = -0.5f*width;
-				float y = -0.5f*height;
-				float dx = width / (nx - 1);
-				float dy = height / (ny - 1);
-
-				for (int i = 0; i < nx; ++i)
+				// this is the one from the stack
+				if (boneFound)
 				{
-					for (int j = 0; j < ny; ++j)
+					WorldCommands::NewSpeck speck;
+					json speckPositionsList = jsonBone.at("specks").get<json>();
+					for (json::iterator speckPositionsListIt = speckPositionsList.begin(); speckPositionsListIt != speckPositionsList.end(); ++speckPositionsListIt)
 					{
-						XMVECTOR jointPosL = XMVectorSet(i*dx + x, -20.0f * mSpeckRadius, j*dy + y, 1.0f);
-						XMVECTOR jointPosW = XMVector3TransformCoord(jointPosL, worldTransform);
-						WorldCommands::NewSpeck ns;
-						XMStoreFloat3(&ns.position, jointPosW);
-						commandForJoint.newSpecks.push_back(ns);
+						json speckPosition = speckPositionsListIt.value();
+						speck.position.x = speckPosition.at("x").get<float>();
+						speck.position.y = speckPosition.at("y").get<float>();
+						speck.position.z = speckPosition.at("z").get<float>();
+						command.newSpecks.push_back(speck);
 					}
+
+					ProcessBone(node, &command, jsonBoneName);
+					break;
 				}
-				GetWorld().ExecuteCommand(commandForJoint);
 			}
-
-			if (addChest)
-			{
-				addChest = false;
-				WorldCommands::AddSpecksCommand commandForJoint;
-				commandForJoint.speckType = WorldCommands::SpeckType::RigidBodyJoint;
-				commandForJoint.frictionCoefficient = command.frictionCoefficient;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[0] = lastAddedRigidBodyIndex;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[1] = commandResult.rigidBodyIndex;
-
-				commandForJoint.newSpecks.clear();
-				int nx = 4;
-				int ny = 4;
-				float width = (nx - 1) * 20.0f * mSpeckRadius;
-				float height = (ny - 1) * 20.0f * mSpeckRadius;
-				float x = -0.5f*width;
-				float y = -0.5f*height;
-				float dx = width / (nx - 1);
-				float dy = height / (ny - 1);
-
-				for (int i = 0; i < nx; ++i)
-				{
-					for (int j = 0; j < ny; ++j)
-					{
-						XMVECTOR jointPosL = XMVectorSet(i*dx + x, -35.0f * mSpeckRadius, j*dy + y, 1.0f);
-						XMVECTOR jointPosW = XMVector3TransformCoord(jointPosL, worldTransform);
-						WorldCommands::NewSpeck ns;
-						XMStoreFloat3(&ns.position, jointPosW);
-						commandForJoint.newSpecks.push_back(ns);
-					}
-				}
-				GetWorld().ExecuteCommand(commandForJoint);
-			}
-
-			if (addShoulderChest)
-			{
-				addShoulderChest = false;
-				WorldCommands::AddSpecksCommand commandForJoint;
-				commandForJoint.speckType = WorldCommands::SpeckType::RigidBodyJoint;
-				commandForJoint.frictionCoefficient = command.frictionCoefficient;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[0] = mNodesAnimData["Spine2"].index;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[1] = commandResult.rigidBodyIndex;
-
-				XMVECTOR jointPosL1 = XMVectorSet(10.0f * mSpeckRadius, 12.0f * mSpeckRadius, 20.0f * mSpeckRadius, 1.0f);
-				XMVECTOR jointPosW1 = XMVector3TransformCoord(jointPosL1, worldTransform);
-				XMVECTOR jointPosL2 = XMVectorSet(-10.0f * mSpeckRadius, 12.0f * mSpeckRadius, 20.0f * mSpeckRadius, 1.0f);
-				XMVECTOR jointPosW2 = XMVector3TransformCoord(jointPosL2, worldTransform);
-				XMVECTOR jointPosL3 = XMVectorSet(0.0f * mSpeckRadius, 12.0f * mSpeckRadius, 20.0f * mSpeckRadius, 1.0f);
-				XMVECTOR jointPosW3 = XMVector3TransformCoord(jointPosL3, worldTransform);
-
-				commandForJoint.newSpecks.resize(3);
-				XMStoreFloat3(&commandForJoint.newSpecks[0].position, jointPosW1);
-				XMStoreFloat3(&commandForJoint.newSpecks[1].position, jointPosW2);
-				XMStoreFloat3(&commandForJoint.newSpecks[2].position, jointPosW3);
-				GetWorld().ExecuteCommand(commandForJoint);
-			}
-
-			if (addElbow)
-			{
-				addElbow = false;
-				WorldCommands::AddSpecksCommand commandForJoint;
-				commandForJoint.speckType = WorldCommands::SpeckType::RigidBodyJoint;
-				commandForJoint.frictionCoefficient = command.frictionCoefficient;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[0] = lastAddedRigidBodyIndex;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[1] = commandResult.rigidBodyIndex;
-
-				XMVECTOR jointPosL1 = XMVectorSet(0.0f, 0.0f, 10.0f * mSpeckRadius, 1.0f);
-				XMVECTOR jointPosW1 = XMVector3TransformCoord(jointPosL1, worldTransform);
-				XMVECTOR jointPosL2 = XMVectorSet(0.0f, 0.0f, -10.0f * mSpeckRadius, 1.0f);
-				XMVECTOR jointPosW2 = XMVector3TransformCoord(jointPosL2, worldTransform);
-				commandForJoint.newSpecks.resize(2);
-				XMStoreFloat3(&commandForJoint.newSpecks[0].position, jointPosW1);
-				XMStoreFloat3(&commandForJoint.newSpecks[1].position, jointPosW2);
-				GetWorld().ExecuteCommand(commandForJoint);
-			}
-
-			if (addShoulder)
-			{
-				addShoulder = false;
-				WorldCommands::AddSpecksCommand commandForJoint;
-				commandForJoint.speckType = WorldCommands::SpeckType::RigidBodyJoint;
-				commandForJoint.frictionCoefficient = command.frictionCoefficient;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[0] = lastAddedRigidBodyIndex;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[1] = commandResult.rigidBodyIndex;
-
-				XMVECTOR jointPosL1 = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
-				XMVECTOR jointPosW1 = XMVector3TransformCoord(jointPosL1, worldTransform);
-				commandForJoint.newSpecks.resize(1);
-				XMStoreFloat3(&commandForJoint.newSpecks[0].position, jointPosW1);
-				GetWorld().ExecuteCommand(commandForJoint);
-			}
-
-			if (addNeck)
-			{
-				addNeck = false;
-				// connect to chest
-				WorldCommands::AddSpecksCommand commandForJoint;
-				commandForJoint.speckType = WorldCommands::SpeckType::RigidBodyJoint;
-				commandForJoint.frictionCoefficient = command.frictionCoefficient;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[0] = mNodesAnimData["Spine2"].index;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[1] = commandResult.rigidBodyIndex;
-
-				commandForJoint.newSpecks.clear();
-				int nx = 2;
-				int ny = 3;
-				float width = (nx - 1) * 20.0f * mSpeckRadius;
-				float height = (ny - 1) * 20.0f * mSpeckRadius;
-				float x = -0.5f*width;
-				float y = -0.5f*height;
-				float dx = width / (nx - 1);
-				float dy = height / (ny - 1);
-
-				for (int i = 0; i < nx; ++i)
-				{
-					for (int j = 0; j < ny; ++j)
-					{
-						XMVECTOR jointPosL = XMVectorSet(i*dx + x, -20.0f * mSpeckRadius, j*dy + y, 1.0f);
-						XMVECTOR jointPosW = XMVector3TransformCoord(jointPosL, worldTransform);
-						WorldCommands::NewSpeck ns;
-						XMStoreFloat3(&ns.position, jointPosW);
-						commandForJoint.newSpecks.push_back(ns);
-					}
-				}
-				GetWorld().ExecuteCommand(commandForJoint);
-
-				// connect to right shoulder
-				commandForJoint.speckType = WorldCommands::SpeckType::RigidBodyJoint;
-				commandForJoint.frictionCoefficient = command.frictionCoefficient;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[0] = mNodesAnimData["RightShoulder"].index;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[1] = commandResult.rigidBodyIndex;
-
-				XMVECTOR jointPosL1 = XMVectorSet(-40.0f * mSpeckRadius, -10.0f * mSpeckRadius, 0.0f, 1.0f);
-				XMVECTOR jointPosW1 = XMVector3TransformCoord(jointPosL1, worldTransform);
-				commandForJoint.newSpecks.resize(1);
-				XMStoreFloat3(&commandForJoint.newSpecks[0].position, jointPosW1);
-				GetWorld().ExecuteCommand(commandForJoint);
-
-				// connect to left shoulder
-				commandForJoint.speckType = WorldCommands::SpeckType::RigidBodyJoint;
-				commandForJoint.frictionCoefficient = command.frictionCoefficient;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[0] = mNodesAnimData["LeftShoulder"].index;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[1] = commandResult.rigidBodyIndex;
-
-				jointPosL1 = XMVectorSet(40.0f * mSpeckRadius, -10.0f * mSpeckRadius, 0.0f, 1.0f);
-				jointPosW1 = XMVector3TransformCoord(jointPosL1, worldTransform);
-				commandForJoint.newSpecks.resize(1);
-				XMStoreFloat3(&commandForJoint.newSpecks[0].position, jointPosW1);
-				GetWorld().ExecuteCommand(commandForJoint);
-			}
-
-			if (addHead)
-			{
-				addHead = false;
-				WorldCommands::AddSpecksCommand commandForJoint;
-				commandForJoint.speckType = WorldCommands::SpeckType::RigidBodyJoint;
-				commandForJoint.frictionCoefficient = command.frictionCoefficient;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[0] = lastAddedRigidBodyIndex;
-				commandForJoint.rigidBodyJoint.rigidBodyIndex[1] = commandResult.rigidBodyIndex;
-
-				commandForJoint.newSpecks.clear();
-				int nx = 2;
-				int ny = 2;
-				float width = (nx - 1) * 20.0f * mSpeckRadius;
-				float height = (ny - 1) * 20.0f * mSpeckRadius;
-				float x = -0.5f*width;
-				float y = -0.5f*height;
-				float dx = width / (nx - 1);
-				float dy = height / (ny - 1);
-
-				for (int i = 0; i < nx; ++i)
-				{
-					for (int j = 0; j < ny; ++j)
-					{
-						XMVECTOR jointPosL = XMVectorSet(i*dx + x, -20.0f * mSpeckRadius, j*dy + y, 1.0f);
-						XMVECTOR jointPosW = XMVector3TransformCoord(jointPosL, worldTransform);
-						WorldCommands::NewSpeck ns;
-						XMStoreFloat3(&ns.position, jointPosW);
-						commandForJoint.newSpecks.push_back(ns);
-					}
-				}
-				GetWorld().ExecuteCommand(commandForJoint);
-			}
-
-			lastAddedRigidBodyIndex = commandResult.rigidBodyIndex;
-		}
-		else
-		{
-			mNodesAnimData[name].index = -1;
 		}
 
 		int numChildren = node->GetChildCount();
@@ -970,14 +197,91 @@ void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp)
 			nodeStack.push_back(childNode);
 		}
 
-		if (name.find("Alpha_Surface") != string::npos)
+		if (boneName.find("Guard02") != string::npos)
 		{
 			skinNode = node;
 		}
 	}
 
-	// Once the whole 'mNamesDictionary' is constructed.
-	//if (skinNode) ProcessRenderSkin(skinNode, pApp);
+	// connect the bones
+	WorldCommands::AddSpecksCommand commandForJoint;
+	commandForJoint.speckType = WorldCommands::SpeckType::RigidBodyJoint;
+	commandForJoint.speckMass = 1.0f;
+	commandForJoint.frictionCoefficient = 0.2f;
+	json::iterator it = j.find("joints");
+	if (it != j.end())
+	{
+		json list = it.value();
+		for (json::iterator listIt = list.begin(); listIt != list.end(); ++listIt)
+		{
+			json jsonJoint = listIt.value();
+			json pairsList = jsonJoint.find("pairs").value();
+			for (json::iterator pairListIt = pairsList.begin(); pairListIt != pairsList.end(); ++pairListIt)
+			{
+				json pair = pairListIt.value();
+				string jsonJointParentBoneName = pair.at("parentBoneName").get<string>();
+				string jsonJointChildBoneName = pair.at("childBoneName").get<string>();
+				auto parentIte = mNodesAnimData.find(jsonJointParentBoneName);
+				auto childIte = mNodesAnimData.find(jsonJointChildBoneName);
+
+				if (parentIte != mNodesAnimData.end() && childIte != mNodesAnimData.end())
+				{
+					int parentRBIndex = parentIte->second.index;
+					int childRBIndex = childIte->second.index;
+					commandForJoint.rigidBodyJoint.rigidBodyIndex[0] = parentRBIndex;
+					commandForJoint.rigidBodyJoint.rigidBodyIndex[1] = childRBIndex;
+					XMMATRIX parentWorldBindPose = XMLoadFloat4x4(&parentIte->second.bindPoseWorldTransform);
+					XMVECTOR det;
+					XMMATRIX parentWorldBindPoseInv = XMMatrixInverse(&det, parentWorldBindPose);
+					XMMATRIX childWorldBindPose = XMLoadFloat4x4(&childIte->second.bindPoseWorldTransform);
+					XMMATRIX childLocalSpaceToParentLocalSpace = childWorldBindPose * parentWorldBindPoseInv;
+
+					XMVECTOR parentCOM = XMLoadFloat3(&parentIte->second.centerOfMass) * (float)parentIte->second.numberOfSpecks;
+					XMVECTOR childCOM = XMLoadFloat3(&childIte->second.centerOfMass) * (float)childIte->second.numberOfSpecks;
+
+					// for every speck
+					WorldCommands::NewSpeck speck;
+					commandForJoint.newSpecks.clear();
+					json speckPositionsList = jsonJoint.at("specks").get<json>();
+					for (json::iterator speckPositionsListIt = speckPositionsList.begin(); speckPositionsListIt != speckPositionsList.end(); ++speckPositionsListIt)
+					{
+						// load it
+						json speckPosition = speckPositionsListIt.value();
+						speck.position.x = speckPosition.at("x").get<float>();
+						speck.position.y = speckPosition.at("y").get<float>();
+						speck.position.z = speckPosition.at("z").get<float>();
+						XMVECTOR jointPosChildLocalSpace = XMLoadFloat3(&speck.position);
+
+						// update the rigid body bones with the mass distribution information
+						parentCOM += XMVector3TransformCoord(jointPosChildLocalSpace, childLocalSpaceToParentLocalSpace);
+						childCOM += jointPosChildLocalSpace;
+						parentIte->second.numberOfSpecks += 1;
+						childIte->second.numberOfSpecks += 1;
+
+						// transform it
+						XMVECTOR jointPosW = XMVector3TransformCoord(jointPosChildLocalSpace, childWorldBindPose);
+						XMStoreFloat3(&speck.position, jointPosW);
+
+						// save it
+						commandForJoint.newSpecks.push_back(speck);
+					}
+
+					// calculate the new center of mass and store it
+					parentCOM = parentCOM / (float)parentIte->second.numberOfSpecks;
+					childCOM = childCOM / (float)childIte->second.numberOfSpecks;
+					XMStoreFloat3(&parentIte->second.centerOfMass, parentCOM);
+					XMStoreFloat3(&childIte->second.centerOfMass, childCOM);
+
+					GetWorld().ExecuteCommand(commandForJoint);
+				}
+			}
+		}
+	}
+
+	if (skinNode)
+	{
+		ProcessRenderSkin(skinNode, pApp);
+	}
 }
 
 bool operator==(const AppCommands::MeshVertex &left, const AppCommands::MeshVertex &right)
@@ -1170,7 +474,7 @@ HumanoidSkeleton::~HumanoidSkeleton()
 	}
 }
 
-void HumanoidSkeleton::Initialize(const wchar_t * fbxFilePath, App *pApp, bool saveFixed)
+void HumanoidSkeleton::Initialize(const wchar_t * fbxFilePath, const wchar_t *speckStructureJSON, App *pApp, bool saveFixed)
 {
 	// Get world properties
 	WorldCommands::GetWorldPropertiesCommand gwp;
@@ -1193,7 +497,7 @@ void HumanoidSkeleton::Initialize(const wchar_t * fbxFilePath, App *pApp, bool s
 	// Initialize the importer.
 	wstring ws(fbxFilePath);
 	string filename(ws.begin(), ws.end());
-	bool lImportStatus = lImporter->Initialize(&filename[0], -1, mSDKManager->GetIOSettings());
+	bool lImportStatus = lImporter->Initialize(filename.c_str(), -1, mSDKManager->GetIOSettings());
 
 	// If any errors occur in the call to FbxImporter::Initialize(), the method returns false.
 	// To retrieve the error, you must call GetStatus().GetErrorString() from the FbxImporter object. 
@@ -1218,7 +522,6 @@ void HumanoidSkeleton::Initialize(const wchar_t * fbxFilePath, App *pApp, bool s
 
 	// The file has been imported; we can get rid of the unnecessary objects.
 	lImporter->Destroy();
-	ios->Destroy();
 
 	if (mScene->GetGlobalSettings().GetSystemUnit() == FbxSystemUnit::cm)
 	{
@@ -1257,7 +560,7 @@ void HumanoidSkeleton::Initialize(const wchar_t * fbxFilePath, App *pApp, bool s
 		// Create an exporter.
 		FbxExporter* exporter = FbxExporter::Create(mSDKManager, "");
 		// Initialize the exporter.
-		bool lExportStatus = exporter->Initialize(&filename[0], -1, mSDKManager->GetIOSettings());
+		bool lExportStatus = exporter->Initialize(filename.c_str(), -1, mSDKManager->GetIOSettings());
 		// If any errors occur in the call to FbxExporter::Initialize(), the method returns false.
 		// To retrieve the error, you must call GetStatus().GetErrorString() from the FbxImporter object. 
 		if (!lExportStatus)
@@ -1268,9 +571,22 @@ void HumanoidSkeleton::Initialize(const wchar_t * fbxFilePath, App *pApp, bool s
 
 		// Export the scene.
 		exporter->Export(mScene);
+
 		// Destroy the exporter.
 		exporter->Destroy();
 	}
+
+	// Destroy the IOSettings object.
+	ios->Destroy();
+
+	// Open the JSON file, read from it and close it
+	fstream fileStream;
+	fileStream.open(speckStructureJSON, fstream::in | fstream::out | fstream::app);
+	fileStream.seekg(0, ios::end);
+	mSpeckBodyStructureJSONFile.reserve(fileStream.tellg());
+	fileStream.seekg(0, ios::beg);
+	mSpeckBodyStructureJSONFile.assign((istreambuf_iterator<char>(fileStream)), istreambuf_iterator<char>());
+	fileStream.close();
 
 	CreateSpecksBody(pApp);
 
@@ -1280,9 +596,8 @@ void HumanoidSkeleton::Initialize(const wchar_t * fbxFilePath, App *pApp, bool s
 
 void HumanoidSkeleton::UpdateAnimation(float time)
 {
-	// Create the body made out of specks
 	int numStacks = mScene->GetSrcObjectCount<FbxAnimStack>();
-	FbxAnimStack* pAnimStack = FbxCast<FbxAnimStack>(mScene->GetSrcObject<FbxAnimStack>(numStacks-1));
+	FbxAnimStack* pAnimStack = FbxCast<FbxAnimStack>(mScene->GetSrcObject<FbxAnimStack>(numStacks - 1));
 	FbxTimeSpan &timeSpan = pAnimStack->GetLocalTimeSpan();
 	float animTime = (float)timeSpan.GetDuration().GetSecondDouble();
 	int numAnimLayers = pAnimStack->GetMemberCount<FbxAnimLayer>();
@@ -1312,9 +627,7 @@ void HumanoidSkeleton::UpdateAnimation(float time)
 
 		// Get a reference to node’s local transform.
 		FbxMatrix nodeTransform = sceneEvaluator->GetNodeGlobalTransform(node, myTime);
-
 		string name = node->GetName();
-		name = mNamesDictionary[name];
 
 		WorldCommands::UpdateSpeckRigidBodyCommand command;
 		command.movementMode = WorldCommands::RigidBodyMovementMode::CPU;
@@ -1325,8 +638,11 @@ void HumanoidSkeleton::UpdateAnimation(float time)
 			XMFLOAT4X4 worldMatrix;
 			Conv(&worldMatrix, nodeTransform);
 			XMMATRIX w = XMLoadFloat4x4(&worldMatrix);
-			XMMATRIX localTransform = XMLoadFloat4x4(&mNodesAnimData[name].localTransform);
-			w = XMMatrixMultiply(localTransform, w);
+			XMVECTOR inverseLocalTranslation = XMLoadFloat3(&mNodesAnimData[name].centerOfMass);
+			XMVECTOR inverseLocalRotation = XMLoadFloat4(&mNodesAnimData[name].inverseRotation);
+			XMVECTOR inverseLocalScale = XMLoadFloat3(&mNodesAnimData[name].inverseScale);
+			XMMATRIX inverseLocalTransform = XMMatrixTranslationFromVector(inverseLocalTranslation) * XMMatrixRotationQuaternion(inverseLocalRotation) * XMMatrixScalingFromVector(inverseLocalScale);
+			w = XMMatrixMultiply(inverseLocalTransform, w);
 			XMVECTOR s, r, t;
 			XMMatrixDecompose(&s, &r, &t, w);
 			XMStoreFloat3(&command.transform.mT, t);
@@ -1367,9 +683,7 @@ void HumanoidSkeleton::StartSimulation()
 		// Pop the last item on the stack
 		FbxNode *node = *(nodeStack.end() - 1);
 		nodeStack.pop_back();
-
 		string name = node->GetName();
-		name = mNamesDictionary[name];
 
 		WorldCommands::UpdateSpeckRigidBodyCommand command;
 		command.movementMode = WorldCommands::RigidBodyMovementMode::GPU;

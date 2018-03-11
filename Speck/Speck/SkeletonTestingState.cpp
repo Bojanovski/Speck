@@ -155,7 +155,7 @@ void SkeletonTestingState::Initialize()
 	GetWorld().ExecuteCommand(efc);
 
 	mHumanoidSkeleton = make_unique<HumanoidSkeleton>(GetWorld());
-	mHumanoidSkeleton->Initialize(L"Data/Animations/house_dancing.fbx", &GetApp());
+	mHumanoidSkeleton->Initialize(L"Data/Animations/house_dancing.fbx", L"Data/Animations/house_dancing.json", &GetApp());
 
 	WorldCommands::SetTimeMultiplierCommand stmc;
 	stmc.timeMultiplierConstant = 1.0f;

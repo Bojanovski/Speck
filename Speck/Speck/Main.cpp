@@ -10,6 +10,45 @@
 using namespace Speck;
 using namespace std;
 
+int Test1(HINSTANCE hInstance)
+{
+	unique_ptr<EngineCore> ec;
+	unique_ptr<World> w;
+	unique_ptr<App> app;
+	CreateSpeckApp(hInstance, 0.25f, 100, 1000, &ec, &w, &app);
+	if (!app->Initialize())
+		return 1;
+
+	int result = app->Run(make_unique<JointTestingState>(*ec));
+	return result;
+}
+
+int Test2(HINSTANCE hInstance)
+{
+	unique_ptr<EngineCore> ec;
+	unique_ptr<World> w;
+	unique_ptr<App> app;
+	CreateSpeckApp(hInstance, 0.25f, 100, 1000, &ec, &w, &app);
+	if (!app->Initialize())
+		return 1;
+
+	int result = app->Run(make_unique<SkeletonTestingState>(*ec));
+	return result;
+}
+
+int Test3(HINSTANCE hInstance)
+{
+	unique_ptr<EngineCore> ec;
+	unique_ptr<World> w;
+	unique_ptr<App> app;
+	CreateSpeckApp(hInstance, 0.5f, 100, 1000, &ec, &w, &app);
+	if (!app->Initialize())
+		return 1;
+
+	int result = app->Run(make_unique<SkinnedSkeletonTestingState>(*ec));
+	return result;
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd)
 {
 	// Enable run-time memory check for debug builds.
@@ -19,15 +58,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 
 	try
 	{
-		unique_ptr<EngineCore> ec;
-		unique_ptr<World> w;
-		unique_ptr<App> app;
-		CreateSpeckApp(hInstance, 0.25f, 100, 1000, &ec, &w, &app);
-		if (!app->Initialize())
-			return 1;
-
-		int result = app->Run(make_unique<SkinnedSkeletonTestingState>(*ec));
-		return result;
+		return Test3(hInstance);
 	}
 	catch (Exception &ex)
 	{

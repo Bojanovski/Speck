@@ -181,6 +181,7 @@
     <ClCompile Include="StaticPrimitivesGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Json.h" />
     <ClInclude Include="SkinnedSkeletonTestingState.h" />
     <ClInclude Include="SpeckPrimitivesGenerator.h" />
     <ClInclude Include="JointTestingState.h" />

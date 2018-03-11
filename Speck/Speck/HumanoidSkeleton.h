@@ -21,21 +21,12 @@ public:
 	HumanoidSkeleton(Speck::World &w);
 	~HumanoidSkeleton();
 
-	void Initialize(const wchar_t *fbxFilePath, Speck::App *pApp, bool saveFixed = false);
+	void Initialize(const wchar_t *fbxFilePath, const wchar_t *speckStructureJSON, Speck::App *pApp, bool saveFixed = false);
 	void UpdateAnimation(float time);
 	void StartSimulation();
 
 private:
-	void ProcessRoot(fbxsdk::FbxNode *node, fbxsdk::FbxAnimLayer *animLayer, Speck::WorldCommands::AddSpecksCommand *outCommand, DirectX::XMMATRIX *localOut);
-	void ProcessHips(fbxsdk::FbxNode *node, fbxsdk::FbxAnimLayer *animLayer, Speck::WorldCommands::AddSpecksCommand *outCommand, DirectX::XMMATRIX *localOut);
-	void ProcessLegPart(fbxsdk::FbxNode *node, fbxsdk::FbxAnimLayer *animLayer, Speck::WorldCommands::AddSpecksCommand *outCommand, DirectX::XMMATRIX *worldOut, DirectX::XMMATRIX *localOut);
-	void ProcessSpinePart(fbxsdk::FbxNode *node, fbxsdk::FbxAnimLayer *animLayer, Speck::WorldCommands::AddSpecksCommand *outCommand, DirectX::XMMATRIX *worldOut, DirectX::XMMATRIX *localOut);
-	void ProcessChest(fbxsdk::FbxNode *node, fbxsdk::FbxAnimLayer *animLayer, Speck::WorldCommands::AddSpecksCommand *outCommand, DirectX::XMMATRIX *worldOut, DirectX::XMMATRIX *localOut);
-	void ProcessShoulder(fbxsdk::FbxNode *node, fbxsdk::FbxAnimLayer *animLayer, Speck::WorldCommands::AddSpecksCommand *outCommand, DirectX::XMMATRIX *worldOut, DirectX::XMMATRIX *localOut, bool right);
-	void ProcessArmPart(fbxsdk::FbxNode *node, fbxsdk::FbxAnimLayer *animLayer, Speck::WorldCommands::AddSpecksCommand *outCommand, DirectX::XMMATRIX *worldOut, DirectX::XMMATRIX *localOut, bool right);
-	void ProcessNeck(fbxsdk::FbxNode *node, fbxsdk::FbxAnimLayer *animLayer, Speck::WorldCommands::AddSpecksCommand *outCommand, DirectX::XMMATRIX *worldOut, DirectX::XMMATRIX *localOut);
-	void ProcessHead(fbxsdk::FbxNode *node, fbxsdk::FbxAnimLayer *animLayer, Speck::WorldCommands::AddSpecksCommand *outCommand, DirectX::XMMATRIX *worldOut, DirectX::XMMATRIX *localOut);
-
+	void ProcessBone(fbxsdk::FbxNode *node, Speck::WorldCommands::AddSpecksCommand *outCommand, const std::string &boneName);
 	void CreateSpecksBody(Speck::App *pApp);
 	void ProcessRenderSkin(fbxsdk::FbxNode *node, Speck::App *pApp);
 
@@ -43,9 +34,17 @@ private:
 	fbxsdk::FbxScene *mScene;
 	fbxsdk::FbxManager *mSDKManager;
 	float mSpeckRadius;
-	struct NodeAnimData { UINT index; DirectX::XMFLOAT4X4 localTransform; };
+	std::string mSpeckBodyStructureJSONFile;
+	struct NodeAnimData 
+	{
+		UINT index = -1;
+		UINT numberOfSpecks; 
+		DirectX::XMFLOAT3 centerOfMass; 
+		DirectX::XMFLOAT3 inverseScale; 
+		DirectX::XMFLOAT4 inverseRotation;
+		DirectX::XMFLOAT4X4 bindPoseWorldTransform;
+	};
 	std::unordered_map < std::string, NodeAnimData > mNodesAnimData;
-	std::unordered_map < std::string, std::string > mNamesDictionary;
 	enum { None, BindPose, Animating, Simulating } mState = None;
 };
 

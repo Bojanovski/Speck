@@ -26,7 +26,8 @@ namespace Speck
 		struct UpdateCameraCommand;
 		struct LoadResourceCommand;
 		struct CreateMaterialCommand;
-		struct CreateGeometryCommand;
+		struct CreateStaticGeometryCommand;
+		struct CreateSkinnedGeometryCommand;
 	}
 	namespace WorldCommands
 	{
@@ -47,7 +48,8 @@ namespace Speck
 		friend struct AppCommands::UpdateCameraCommand;
 		friend struct AppCommands::LoadResourceCommand;
 		friend struct AppCommands::CreateMaterialCommand;
-		friend struct AppCommands::CreateGeometryCommand;
+		friend struct AppCommands::CreateStaticGeometryCommand;
+		friend struct AppCommands::CreateSkinnedGeometryCommand;
 		friend struct WorldCommands::AddEnviromentMapCommand;
 		friend struct WorldCommands::CreatePSOGroupCommand;
 

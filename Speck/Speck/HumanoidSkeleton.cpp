@@ -284,7 +284,7 @@ void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp)
 	}
 }
 
-bool operator==(const AppCommands::MeshVertex &left, const AppCommands::MeshVertex &right)
+bool operator==(const AppCommands::StaticMeshVertex &left, const AppCommands::StaticMeshVertex &right)
 {
 	if (left.Normal == right.Normal &&
 		left.Position == right.Position &&
@@ -308,7 +308,7 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 	FbxStringList pUVSetNameList;
 	meshPt->GetUVSetNames(pUVSetNameList);
 
-	AppCommands::CreateGeometryCommand cgc;
+	AppCommands::CreateStaticGeometryCommand cgc;
 	cgc.geometryName = node->GetName();
 	cgc.meshName = meshPt->GetName();
 
@@ -320,7 +320,7 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 		for (int j = 0; j < polyVertCount; j++)
 		{
 
-			AppCommands::MeshVertex vert;
+			AppCommands::StaticMeshVertex vert;
 			int cpIndex = meshPt->GetPolygonVertex(i, j);
 
 			controlPoints[cpIndex].mData[3] = 1.0f;
@@ -361,81 +361,80 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 		}
 	}
 
-	////
-	//// Skinning
-	////
-	//struct VertexSkinningData
-	//{
-	//	UINT count = 0;
-	//	UINT bones[10];
-	//	float weights[10];
-	//};
-	//vector<VertexSkinningData> verticesSkinningData;
-	//verticesSkinningData.resize(cgc.vertices.size());
-	//int nDeformers = meshPt->GetDeformerCount();
-	//FbxSkin *pSkin = (FbxSkin*)meshPt->GetDeformer(0, FbxDeformer::eSkin);
+	//
+	// Skinning
+	//
+	struct VertexSkinningData
+	{
+		UINT count = 0;
+		UINT bones[10];
+		float weights[10];
+	};
+	vector<VertexSkinningData> verticesSkinningData;
+	verticesSkinningData.resize(cgc.vertices.size());
+	int nDeformers = meshPt->GetDeformerCount();
+	FbxSkin *pSkin = (FbxSkin*)meshPt->GetDeformer(0, FbxDeformer::eSkin);
 
-	//// iterate bones
-	//int ncBones = pSkin->GetClusterCount();
-	//for (int boneIndex = 0; boneIndex < ncBones; ++boneIndex)
-	//{
-	//	// cluster
-	//	FbxCluster* cluster = pSkin->GetCluster(boneIndex);
+	// iterate bones
+	int ncBones = pSkin->GetClusterCount();
+	for (int boneIndex = 0; boneIndex < ncBones; ++boneIndex)
+	{
+		// cluster
+		FbxCluster* cluster = pSkin->GetCluster(boneIndex);
 
-	//	// bone ref
-	//	FbxNode* pBone = cluster->GetLink();
-	//	string originalName = pBone->GetName();
-	//	string name = mNamesDictionary[originalName];
-	//	UINT rigidBodyIndex = mNodesAnimData[name].index;
+		// bone ref
+		FbxNode* pBone = cluster->GetLink();
+		string boneName = pBone->GetName();
+		UINT rigidBodyIndex = mNodesAnimData[boneName].index;
 
-	//	// Get the bind pose
-	//	FbxAMatrix bindPoseMatrix, transformMatrix;
-	//	cluster->GetTransformMatrix(transformMatrix);
-	//	cluster->GetTransformLinkMatrix(bindPoseMatrix);
-	//	XMFLOAT4X4 bindPoseMatrixF;
-	//	Conv(&bindPoseMatrixF, bindPoseMatrix);
-	//	XMMATRIX bindPose = XMLoadFloat4x4(&bindPoseMatrixF);
-	//	XMVECTOR det;
-	//	XMMATRIX invBindPose = XMMatrixInverse(&det, bindPose);
+		// Get the bind pose
+		FbxAMatrix bindPoseMatrix, transformMatrix;
+		cluster->GetTransformMatrix(transformMatrix);
+		cluster->GetTransformLinkMatrix(bindPoseMatrix);
+		XMFLOAT4X4 bindPoseMatrixF;
+		Conv(&bindPoseMatrixF, bindPoseMatrix);
+		XMMATRIX bindPose = XMLoadFloat4x4(&bindPoseMatrixF);
+		XMVECTOR det;
+		XMMATRIX invBindPose = XMMatrixInverse(&det, bindPose);
 
-	//	// decomposed transform components
-	//	FbxVector4 vS = bindPoseMatrix.GetS();
-	//	FbxVector4 vR = bindPoseMatrix.GetR();
-	//	FbxVector4 vT = bindPoseMatrix.GetT();
+		// decomposed transform components
+		FbxVector4 vS = bindPoseMatrix.GetS();
+		FbxVector4 vR = bindPoseMatrix.GetR();
+		FbxVector4 vT = bindPoseMatrix.GetT();
 
-	//	int *pVertexIndices = cluster->GetControlPointIndices();
-	//	double *pVertexWeights = cluster->GetControlPointWeights();
+		int *pVertexIndices = cluster->GetControlPointIndices();
+		double *pVertexWeights = cluster->GetControlPointWeights();
 
-	//	// Iterate through all the vertices, which are affected by the bone
-	//	int ncVertexIndices = cluster->GetControlPointIndicesCount();
-	//	for (int iBoneVertexIndex = 0; iBoneVertexIndex < ncVertexIndices; iBoneVertexIndex++)
-	//	{
-	//		int niVertex = pVertexIndices[iBoneVertexIndex];
-	//		float fWeight = (float)pVertexWeights[iBoneVertexIndex];
-	//		UINT count = verticesSkinningData[niVertex].count;
-	//		verticesSkinningData[niVertex].bones[count] = boneIndex;
-	//		verticesSkinningData[niVertex].weights[count] = fWeight;
-	//		++verticesSkinningData[niVertex].count;
+		// Iterate through all the vertices, which are affected by the bone
+		int ncVertexIndices = cluster->GetControlPointIndicesCount();
+		for (int iBoneVertexIndex = 0; iBoneVertexIndex < ncVertexIndices; iBoneVertexIndex++)
+		{
+			int niVertex = pVertexIndices[iBoneVertexIndex];
+			float fWeight = (float)pVertexWeights[iBoneVertexIndex];
+			UINT count = verticesSkinningData[niVertex].count;
+			verticesSkinningData[niVertex].bones[count] = boneIndex;
+			verticesSkinningData[niVertex].weights[count] = fWeight;
+			++verticesSkinningData[niVertex].count;
 
-	//		if (rigidBodyIndex == 5)
-	//		{
-	//			XMVECTOR pos;
-	//			XMVECTOR nor;
-	//			if (verticesSkinningData[niVertex].count > 1) // not first bone
-	//			{
-	//				pos = XMLoadFloat3(&cgc.vertices[niVertex].Position);
-	//				nor = XMLoadFloat3(&cgc.vertices[niVertex].Normal);
-	//			}
-	//			else // first bone
-	//			{
-	//				pos = XMVectorZero();
-	//				nor = XMVectorZero();
-	//			}
-	//			//XMStoreFloat3(&cgc.vertices[niVertex].Position, pos);
-	//			//XMStoreFloat3(&cgc.vertices[niVertex].Normal, nor);
-	//		}
-	//	}
-	//}
+			if (rigidBodyIndex == 5)
+			{
+				XMVECTOR pos;
+				XMVECTOR nor;
+				if (verticesSkinningData[niVertex].count > 1) // not first bone
+				{
+					pos = XMLoadFloat3(&cgc.vertices[niVertex].Position);
+					nor = XMLoadFloat3(&cgc.vertices[niVertex].Normal);
+				}
+				else // first bone
+				{
+					pos = XMVectorZero();
+					nor = XMVectorZero();
+				}
+				//XMStoreFloat3(&cgc.vertices[niVertex].Position, pos);
+				//XMStoreFloat3(&cgc.vertices[niVertex].Normal, nor);
+			}
+		}
+	}
 
 	pApp->ExecuteCommand(cgc);
 

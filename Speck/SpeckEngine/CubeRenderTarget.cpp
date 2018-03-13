@@ -207,7 +207,7 @@ void CubeRenderTarget::BuildDescriptors()
 	srvHeapDesc.NumDescriptors = 4;
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	ThrowIfFailed(device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(mCbvSrvUavHeap.GetAddressOf())));
+	THROW_IF_FAILED(device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(mCbvSrvUavHeap.GetAddressOf())));
 	CD3DX12_CPU_DESCRIPTOR_HANDLE h_CBV_SRV_UAV_Descriptor(mCbvSrvUavHeap->GetCPUDescriptorHandleForHeapStart());
 	// RTV heap
 	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc;
@@ -215,14 +215,14 @@ void CubeRenderTarget::BuildDescriptors()
 	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	rtvHeapDesc.NodeMask = 0;
-	ThrowIfFailed(device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(mRtvHeap.GetAddressOf())));
+	THROW_IF_FAILED(device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(mRtvHeap.GetAddressOf())));
 	// DSV heap
 	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc;
 	dsvHeapDesc.NumDescriptors = 1;
 	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
 	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	dsvHeapDesc.NodeMask = 0;
-	ThrowIfFailed(device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(mDsvHeap.GetAddressOf())));
+	THROW_IF_FAILED(device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(mDsvHeap.GetAddressOf())));
 
 	// Create SRV to the sample rays buffer.
 	D3D12_SHADER_RESOURCE_VIEW_DESC dsc;
@@ -318,7 +318,7 @@ void CubeRenderTarget::BuildResource()
 	D3D12_CLEAR_VALUE optClear1;
 	optClear1.Format = mFormat;
 	GetEngineCore().GetDirectXCore().GetClearRTColor(optClear1.Color);
-	ThrowIfFailed(device->CreateCommittedResource(
+	THROW_IF_FAILED(device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&texDesc,
@@ -343,7 +343,7 @@ void CubeRenderTarget::BuildResource()
 	optClear2.Format = GetEngineCore().GetDirectXCore().GetDepthStencilFormat();
 	optClear2.DepthStencil.Depth = 1.0f;
 	optClear2.DepthStencil.Stencil = 0;
-	ThrowIfFailed(device->CreateCommittedResource(
+	THROW_IF_FAILED(device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&depthStencilDesc,
@@ -365,7 +365,7 @@ void CubeRenderTarget::BuildResource()
 	irrTexDesc.SampleDesc.Quality = 0;
 	irrTexDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	irrTexDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-	ThrowIfFailed(device->CreateCommittedResource(
+	THROW_IF_FAILED(device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&irrTexDesc,
@@ -432,8 +432,8 @@ void CubeRenderTarget::BuildStaticMembers(ID3D12Device *device, ID3D12GraphicsCo
 	{
 		::OutputDebugStringA((char*)errorBlob->GetBufferPointer());
 	}
-	ThrowIfFailed(hr);
-	ThrowIfFailed(device->CreateRootSignature(
+	THROW_IF_FAILED(hr);
+	THROW_IF_FAILED(device->CreateRootSignature(
 		0,
 		serializedRootSig->GetBufferPointer(),
 		serializedRootSig->GetBufferSize(),
@@ -449,7 +449,7 @@ void CubeRenderTarget::BuildStaticMembers(ID3D12Device *device, ID3D12GraphicsCo
 			HGLOBAL hgbl = LoadResource(hMod, hRes);
 			void *pData = LockResource(hgbl);
 			UINT32 sizeInBytes = SizeofResource(hMod, hRes);
-			ThrowIfFailed(D3DCreateBlob(sizeInBytes, mIrrMapCS.GetAddressOf()));
+			THROW_IF_FAILED(D3DCreateBlob(sizeInBytes, mIrrMapCS.GetAddressOf()));
 			memcpy((char*)mIrrMapCS->GetBufferPointer(), pData, sizeInBytes);
 		}
 		FreeLibrary(hMod);
@@ -463,7 +463,7 @@ void CubeRenderTarget::BuildStaticMembers(ID3D12Device *device, ID3D12GraphicsCo
 		reinterpret_cast<BYTE*>(mIrrMapCS->GetBufferPointer()), mIrrMapCS->GetBufferSize()
 	};
 	horzBlurPSO.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
-	ThrowIfFailed(device->CreateComputePipelineState(&horzBlurPSO, IID_PPV_ARGS(&mIrrMapCSPSO)));
+	THROW_IF_FAILED(device->CreateComputePipelineState(&horzBlurPSO, IID_PPV_ARGS(&mIrrMapCSPSO)));
 
 	// Compute sampler rays and create buffer for it.	
 	vector<XMFLOAT4> data;

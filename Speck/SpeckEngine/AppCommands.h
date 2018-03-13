@@ -72,7 +72,7 @@ namespace Speck
 			DLL_EXPORT virtual int Execute(void *ptIn, CommandResult *result) const override;
 		};
 
-		struct MeshVertex
+		struct StaticMeshVertex
 		{
 			DirectX::XMFLOAT3 Position;
 			DirectX::XMFLOAT3 Normal;
@@ -80,16 +80,34 @@ namespace Speck
 			DirectX::XMFLOAT2 TexC;
 		};
 
-		struct CreateGeometryCommand : AppCommand
+		struct CreateStaticGeometryCommand : AppCommand
 		{
 			std::string geometryName = "";
 			std::string meshName = "";
-			std::vector<MeshVertex> vertices;
+			std::vector<StaticMeshVertex> vertices;
 			std::vector<std::uint32_t> indices;
 
 		protected:
 			DLL_EXPORT virtual int Execute(void *ptIn, CommandResult *result) const override;
 		};
+
+		struct SkinnedMeshVertex : public StaticMeshVertex
+		{
+			DirectX::XMFLOAT3 BoneWeights;
+			byte BoneIndices[4];
+		};
+
+		struct CreateSkinnedGeometryCommand : AppCommand
+		{
+			std::string geometryName = "";
+			std::string meshName = "";
+			std::vector<SkinnedMeshVertex> vertices;
+			std::vector<std::uint32_t> indices;
+
+		protected:
+			DLL_EXPORT virtual int Execute(void *ptIn, CommandResult *result) const override;
+		};
+
 	}
 }
 

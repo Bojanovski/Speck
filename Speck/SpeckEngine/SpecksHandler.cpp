@@ -258,7 +258,7 @@ void SpecksHandler::BuildStaticMembers(ID3D12Device *device, ID3D12GraphicsComma
 				HGLOBAL hgbl = LoadResource(hMod, hRes);
 				void *pData = LockResource(hgbl);
 				UINT32 sizeInBytes = SizeofResource(hMod, hRes);
-				ThrowIfFailed(D3DCreateBlob(sizeInBytes, mCS_phases[i].GetAddressOf()));
+				THROW_IF_FAILED(D3DCreateBlob(sizeInBytes, mCS_phases[i].GetAddressOf()));
 				memcpy((char*)mCS_phases[i]->GetBufferPointer(), pData, sizeInBytes);
 			}
 		}
@@ -299,8 +299,8 @@ void SpecksHandler::BuildStaticMembers(ID3D12Device *device, ID3D12GraphicsComma
 	{
 		::OutputDebugStringA((char*)errorBlob->GetBufferPointer());
 	}
-	ThrowIfFailed(hr);
-	ThrowIfFailed(device->CreateRootSignature(
+	THROW_IF_FAILED(hr);
+	THROW_IF_FAILED(device->CreateRootSignature(
 		0,
 		serializedRootSig->GetBufferPointer(),
 		serializedRootSig->GetBufferSize(),
@@ -318,7 +318,7 @@ void SpecksHandler::BuildStaticMembers(ID3D12Device *device, ID3D12GraphicsComma
 			reinterpret_cast<BYTE*>(mCS_phases[i]->GetBufferPointer()), mCS_phases[i]->GetBufferSize()
 		};
 		descPSO.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
-		ThrowIfFailed(device->CreateComputePipelineState(&descPSO, IID_PPV_ARGS(&mPSOs[i])));
+		THROW_IF_FAILED(device->CreateComputePipelineState(&descPSO, IID_PPV_ARGS(&mPSOs[i])));
 	}
 }
 

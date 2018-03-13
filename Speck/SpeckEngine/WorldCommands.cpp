@@ -89,7 +89,7 @@ int CreatePSOGroupCommand::Execute(void *ptIn, CommandResult *result) const
 	psoDesc.SampleDesc.Count = dxCore.Get4xMsaaState() ? 4 : 1;
 	psoDesc.SampleDesc.Quality = dxCore.Get4xMsaaState() ? (dxCore.Get4xMsaaQuality() - 1) : 0;
 	psoDesc.DSVFormat = dxCore.GetDepthStencilFormat();
-	ThrowIfFailed(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&sWorld->mPSOGroups[PSOGroupName]->mPSO)));
+	THROW_IF_FAILED(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&sWorld->mPSOGroups[PSOGroupName]->mPSO)));
 	return 0;
 }
 
@@ -185,7 +185,7 @@ int AddEnviromentMapCommand::Execute(void * ptIn, CommandResult *result) const
 
 	// DirectX CommandList is needed to execute this command.
 	// Reset the command list to prep for initialization commands.
-	ThrowIfFailed(dxCore.GetCommandList()->Reset(dxCore.GetCommandAllocator(), nullptr));
+	THROW_IF_FAILED(dxCore.GetCommandList()->Reset(dxCore.GetCommandAllocator(), nullptr));
 
 	// Actual building of the CubeRenderTarget.
 	auto crt = make_unique<CubeRenderTarget>(sApp->GetEngineCore(), *sWorld, width, height, pos, DXGI_FORMAT_R8G8B8A8_UNORM);
@@ -194,7 +194,7 @@ int AddEnviromentMapCommand::Execute(void * ptIn, CommandResult *result) const
 	sWorld->mCubeRenderTarget[name] = move(crt);
 
 	// Execute the initialization commands.
-	ThrowIfFailed(dxCore.GetCommandList()->Close());
+	THROW_IF_FAILED(dxCore.GetCommandList()->Close());
 	ID3D12CommandList* cmdsListsInitialization[] = { dxCore.GetCommandList() };
 	dxCore.GetCommandQueue()->ExecuteCommandLists(_countof(cmdsListsInitialization), cmdsListsInitialization);
 
@@ -207,7 +207,7 @@ int AddEnviromentMapCommand::Execute(void * ptIn, CommandResult *result) const
 
 	// A command list can be reset after it has been added to the command queue via ExecuteCommandList.
 	// Reusing the command list reuses memory.
-	ThrowIfFailed(commandList->Reset(cmdListAlloc.Get(), nullptr));
+	THROW_IF_FAILED(commandList->Reset(cmdListAlloc.Get(), nullptr));
 
 	commandList->SetGraphicsRootSignature(sApp->GetRootSignature());
 
@@ -255,7 +255,7 @@ int AddEnviromentMapCommand::Execute(void * ptIn, CommandResult *result) const
 	cubePtr->UpdateIrradianceMap();
 
 	// Done recording commands.
-	ThrowIfFailed(commandList->Close());
+	THROW_IF_FAILED(commandList->Close());
 	// Add the command list to the queue for execution.
 	ID3D12CommandList* cmdsListRenderCubeMap[] = { commandList };
 	dxCore.GetCommandQueue()->ExecuteCommandLists(_countof(cmdsListRenderCubeMap), cmdsListRenderCubeMap);

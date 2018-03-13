@@ -17,7 +17,8 @@ namespace Speck
 	{
 		struct LoadResourceCommand;
 		struct CreateMaterialCommand;
-		struct CreateGeometryCommand;
+		struct CreateStaticGeometryCommand;
+		struct CreateSkinnedGeometryCommand;
 	}
 
 	namespace WorldCommands
@@ -33,7 +34,8 @@ namespace Speck
 
 		friend struct AppCommands::LoadResourceCommand;
 		friend struct AppCommands::CreateMaterialCommand;
-		friend struct AppCommands::CreateGeometryCommand;
+		friend struct AppCommands::CreateStaticGeometryCommand;
+		friend struct AppCommands::CreateSkinnedGeometryCommand;
 		friend struct WorldCommands::AddRenderItemCommand;
 		friend struct WorldCommands::AddSpecksCommand;
 		friend struct WorldCommands::CreatePSOGroupCommand;

@@ -52,7 +52,7 @@ int LoadResourceCommand::Execute(void *ptIn, CommandResult *result) const
 	auto &dxCore = sApp->GetEngineCore().GetDirectXCore();
 	// DirectX CommandList is needed to execute this command.
 	// Reset the command list to prep for initialization commands.
-	ThrowIfFailed(dxCore.GetCommandList()->Reset(dxCore.GetCommandAllocator(), nullptr));
+	THROW_IF_FAILED(dxCore.GetCommandList()->Reset(dxCore.GetCommandAllocator(), nullptr));
 
 	int retVal = 1;
 	switch (resType)
@@ -61,7 +61,7 @@ int LoadResourceCommand::Execute(void *ptIn, CommandResult *result) const
 		{
 			auto tex = make_unique<Texture>();
 			tex->Name = name;
-			ThrowIfFailed(CreateDDSTextureFromFile12(dxCore.GetDevice(), dxCore.GetCommandList(), path.c_str(), tex->Resource, tex->UploadHeap));
+			THROW_IF_FAILED(CreateDDSTextureFromFile12(dxCore.GetDevice(), dxCore.GetCommandList(), path.c_str(), tex->Resource, tex->UploadHeap));
 			sApp->mTextures[tex->Name] = move(tex);
 			retVal = 0;
 		}
@@ -86,7 +86,7 @@ int LoadResourceCommand::Execute(void *ptIn, CommandResult *result) const
 	}
 
 	// Execute the initialization commands.
-	ThrowIfFailed(dxCore.GetCommandList()->Close());
+	THROW_IF_FAILED(dxCore.GetCommandList()->Close());
 	ID3D12CommandList* cmdsListsInitialization[] = { dxCore.GetCommandList() };
 	dxCore.GetCommandQueue()->ExecuteCommandLists(_countof(cmdsListsInitialization), cmdsListsInitialization);
 
@@ -134,7 +134,7 @@ int CreateMaterialCommand::Execute(void *ptIn, CommandResult *result) const
 	srvHeapDesc.NumDescriptors = MATERIAL_TEXTURES_COUNT;
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	ThrowIfFailed(dxCore.GetDevice()->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&texMatPt->mSrvDescriptorHeap)));
+	THROW_IF_FAILED(dxCore.GetDevice()->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&texMatPt->mSrvDescriptorHeap)));
 
 	//
 	// Fill out the heap with SRV descriptors for scene.
@@ -172,15 +172,15 @@ int CreateMaterialCommand::Execute(void *ptIn, CommandResult *result) const
 	return 0;
 }
 
-int CreateGeometryCommand::Execute(void * ptIn, CommandResult * result) const
+int CreateStaticGeometryCommand::Execute(void * ptIn, CommandResult * result) const
 {
 	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
 	auto &dxCore = sApp->GetEngineCore().GetDirectXCore();
 	// DirectX CommandList is needed to execute this command.
 	// Reset the command list to prep for initialization commands.
-	ThrowIfFailed(dxCore.GetCommandList()->Reset(dxCore.GetCommandAllocator(), nullptr));
+	THROW_IF_FAILED(dxCore.GetCommandList()->Reset(dxCore.GetCommandAllocator(), nullptr));
 
-	GeometryGenerator::MeshData mesh;
+	GeometryGenerator::StaticMeshData mesh;
 	mesh.Indices32 = indices;
 	mesh.Vertices.resize(vertices.size());
 
@@ -192,53 +192,34 @@ int CreateGeometryCommand::Execute(void * ptIn, CommandResult * result) const
 		mesh.Vertices[i].TexC = vertices[i].TexC;
 	}
 
-	UINT vertexOffset = 0;
-	UINT indexOffset = 0;
-
 	// Define the SubmeshGeometry that cover different 
 	// regions of the vertex/index buffers.
-
 	SubmeshGeometry submesh;
 	submesh.IndexCount = (UINT)indices.size();
-	submesh.StartIndexLocation = indexOffset;
-	submesh.BaseVertexLocation = vertexOffset;
+	submesh.StartIndexLocation = 0;
+	submesh.BaseVertexLocation = 0;
 	submesh.Bounds = mesh.CalculateBounds();
 
-	//
-	// Extract the vertex elements we are interested in and pack the
-	// vertices of all the meshes into one vertex buffer.
-	//
+	vector<uint16_t> indices16 = mesh.GetIndices16();
 
-	auto totalVertexCount = mesh.Vertices.size();
-
-	vector<GeometryGenerator::Vertex> vertices(totalVertexCount);
-	UINT k = 0;
-	for (size_t i = 0; i < mesh.Vertices.size(); ++i, ++k)
-	{
-		vertices[k] = mesh.Vertices[i];
-	}
-
-	vector<uint16_t> indices;
-	indices.insert(indices.end(), begin(mesh.GetIndices16()), end(mesh.GetIndices16()));
-
-	const UINT vbByteSize = (UINT)vertices.size() * sizeof(GeometryGenerator::Vertex);
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(GeometryGenerator::StaticVertex);
 	const UINT ibByteSize = (UINT)indices.size() * sizeof(uint16_t);
 
 	auto geo = make_unique<MeshGeometry>();
 
-	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	THROW_IF_FAILED(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
 	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
 
-	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
-	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+	THROW_IF_FAILED(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices16.data(), ibByteSize);
 
 	geo->VertexBufferGPU = CreateDefaultBuffer(dxCore.GetDevice(),
 		dxCore.GetCommandList(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
 
 	geo->IndexBufferGPU = CreateDefaultBuffer(dxCore.GetDevice(),
-		dxCore.GetCommandList(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+		dxCore.GetCommandList(), indices16.data(), ibByteSize, geo->IndexBufferUploader);
 
-	geo->VertexByteStride = sizeof(GeometryGenerator::Vertex);
+	geo->VertexByteStride = sizeof(GeometryGenerator::StaticVertex);
 	geo->VertexBufferByteSize = vbByteSize;
 	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
 	geo->IndexBufferByteSize = ibByteSize;
@@ -247,7 +228,84 @@ int CreateGeometryCommand::Execute(void * ptIn, CommandResult * result) const
 	sApp->mGeometries[geometryName] = move(geo);
 
 	// Execute the initialization commands.
-	ThrowIfFailed(dxCore.GetCommandList()->Close());
+	THROW_IF_FAILED(dxCore.GetCommandList()->Close());
+	ID3D12CommandList* cmdsListsInitialization[] = { dxCore.GetCommandList() };
+	dxCore.GetCommandQueue()->ExecuteCommandLists(_countof(cmdsListsInitialization), cmdsListsInitialization);
+
+	// Wait until initialization is complete.
+	dxCore.FlushCommandQueue();
+	return 0;
+}
+
+int AppCommands::CreateSkinnedGeometryCommand::Execute(void * ptIn, CommandResult * result) const
+{
+	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
+	auto &dxCore = sApp->GetEngineCore().GetDirectXCore();
+	// DirectX CommandList is needed to execute this command.
+	// Reset the command list to prep for initialization commands.
+	THROW_IF_FAILED(dxCore.GetCommandList()->Reset(dxCore.GetCommandAllocator(), nullptr));
+
+	GeometryGenerator::SkinnedMeshData mesh;
+	mesh.Indices32 = indices;
+	mesh.Vertices.resize(vertices.size());
+
+	for (int i = 0; i < vertices.size(); i++)
+	{
+		mesh.Vertices[i].Position = vertices[i].Position;
+		mesh.Vertices[i].Normal = vertices[i].Normal;
+		mesh.Vertices[i].TangentU = vertices[i].TangentU;
+		mesh.Vertices[i].TexC = vertices[i].TexC;
+		mesh.Vertices[i].BoneWeights = vertices[i].BoneWeights;
+		memcpy(&mesh.Vertices[i].BoneIndices[0], &vertices[i].BoneIndices[0], sizeof(mesh.Vertices[i].BoneIndices));
+	}
+
+	// Define the SubmeshGeometry that cover different 
+	// regions of the vertex/index buffers.
+	SubmeshGeometry submesh;
+	submesh.IndexCount = (UINT)indices.size();
+	submesh.StartIndexLocation = 0;
+	submesh.BaseVertexLocation = 0;
+
+	// Extract the vertex elements we are interested in and pack the
+	// vertices of all the meshes into one vertex buffer.
+	auto totalVertexCount = mesh.Vertices.size();
+
+	vector<GeometryGenerator::SkinnedVertex> vertices(totalVertexCount);
+	UINT k = 0;
+	for (size_t i = 0; i < mesh.Vertices.size(); ++i, ++k)
+	{
+		vertices[k] = mesh.Vertices[i];
+	}
+
+	vector<uint16_t> indices16 = mesh.GetIndices16();
+
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(GeometryGenerator::SkinnedVertex);
+	const UINT ibByteSize = (UINT)indices16.size() * sizeof(uint16_t);
+
+	auto geo = make_unique<MeshGeometry>();
+
+	THROW_IF_FAILED(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+
+	THROW_IF_FAILED(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices16.data(), ibByteSize);
+
+	geo->VertexBufferGPU = CreateDefaultBuffer(dxCore.GetDevice(),
+		dxCore.GetCommandList(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
+
+	geo->IndexBufferGPU = CreateDefaultBuffer(dxCore.GetDevice(),
+		dxCore.GetCommandList(), indices16.data(), ibByteSize, geo->IndexBufferUploader);
+
+	geo->VertexByteStride = sizeof(GeometryGenerator::SkinnedVertex);
+	geo->VertexBufferByteSize = vbByteSize;
+	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
+	geo->IndexBufferByteSize = ibByteSize;
+
+	geo->DrawArgs[meshName] = submesh;
+	sApp->mGeometries[geometryName] = move(geo);
+
+	// Execute the initialization commands.
+	THROW_IF_FAILED(dxCore.GetCommandList()->Close());
 	ID3D12CommandList* cmdsListsInitialization[] = { dxCore.GetCommandList() };
 	dxCore.GetCommandQueue()->ExecuteCommandLists(_countof(cmdsListsInitialization), cmdsListsInitialization);
 

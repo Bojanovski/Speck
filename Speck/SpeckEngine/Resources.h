@@ -31,7 +31,9 @@
 #define RT_SPECK_VS 1200
 #define RT_SPECK_PS 1201
 
-#define RT_STANDARD_VS 1202
-#define RT_STANDARD_PS 1203
+#define RT_STATIC_MESH_VS 1202
+#define RT_STATIC_MESH_PS 1203
+
+#define RT_SKINNED_MESH_VS 1204
 
 #endif

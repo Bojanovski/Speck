@@ -232,12 +232,6 @@
     <FxCompile Include="speckVS.hlsl">
       <Filter>Resource Files\Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="standardPS.hlsl">
-      <Filter>Resource Files\Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="standardVS.hlsl">
-      <Filter>Resource Files\Shaders</Filter>
-    </FxCompile>
     <FxCompile Include="specksCS_phase0.hlsl">
       <Filter>Resource Files\Shaders\specksCS</Filter>
     </FxCompile>
@@ -273,6 +267,15 @@
     </FxCompile>
     <FxCompile Include="specksCS_phase5_3.hlsl">
       <Filter>Resource Files\Shaders\specksCS</Filter>
+    </FxCompile>
+    <FxCompile Include="staticMeshPS.hlsl">
+      <Filter>Resource Files\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="staticMeshVS.hlsl">
+      <Filter>Resource Files\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="skinnedMeshVS.hlsl">
+      <Filter>Resource Files\Shaders</Filter>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>

@@ -21,9 +21,9 @@ SpeckWorld::SpeckWorld(UINT maxRenderItemsCount)
 	mMaxRenderItemsCount(maxRenderItemsCount)
 {
 	// Create the PSO groups.
-	mPSOGroups["instanced"] = make_unique<PSOGroup>();
-	mPSOGroups["static"]	= make_unique<PSOGroup>();
-	//mPSOGroups["skeletalBody"]	= make_unique<PSOGroup>();
+	mPSOGroups["instanced"]		= make_unique<PSOGroup>();
+	mPSOGroups["static"]		= make_unique<PSOGroup>();
+	mPSOGroups["skeletalBody"]	= make_unique<PSOGroup>();
 
 	// Initalize the free space stack.
 	mFreeSpacesRenderItemBuffer.resize(mMaxRenderItemsCount);

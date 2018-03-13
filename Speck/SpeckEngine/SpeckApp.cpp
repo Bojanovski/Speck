@@ -55,7 +55,7 @@ bool SpeckApp::Initialize()
 	SpeckWorld *world = static_cast<SpeckWorld *>(&GetWorld());
 
 	// Reset the command list to prep for initialization commands.
-	ThrowIfFailed(dxCore.GetCommandList()->Reset(dxCore.GetCommandAllocator(), nullptr));
+	THROW_IF_FAILED(dxCore.GetCommandList()->Reset(dxCore.GetCommandAllocator(), nullptr));
 	
 	// Initialize static data.
 	CubeRenderTarget::BuildStaticMembers(dxCore.GetDevice(), dxCore.GetCommandList());
@@ -74,7 +74,7 @@ bool SpeckApp::Initialize()
 	BuildPSOs();
 
 	// Execute the initialization commands.
-	ThrowIfFailed(dxCore.GetCommandList()->Close());
+	THROW_IF_FAILED(dxCore.GetCommandList()->Close());
 	ID3D12CommandList* cmdsLists[] = { dxCore.GetCommandList() };
 	dxCore.GetCommandQueue()->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
 
@@ -91,13 +91,13 @@ void SpeckApp::OnResize()
 	auto &dxCore = GetEngineCore().GetDirectXCore();
 	// Flush before changing any resources.
 	GetEngineCore().GetDirectXCore().FlushCommandQueue();
-	ThrowIfFailed(dxCore.GetCommandList()->Reset(dxCore.GetCommandAllocator(), nullptr));
+	THROW_IF_FAILED(dxCore.GetCommandList()->Reset(dxCore.GetCommandAllocator(), nullptr));
 
 	// Do the (re)initialization.
 	BuildDeferredRenderTargetsAndBuffers();
 
 	// Execute the resize commands.
-	ThrowIfFailed(dxCore.GetCommandList()->Close());
+	THROW_IF_FAILED(dxCore.GetCommandList()->Close());
 	ID3D12CommandList* cmdsLists[] = { dxCore.GetCommandList() };
 	dxCore.GetCommandQueue()->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
 
@@ -119,7 +119,7 @@ void SpeckApp::Update(const Timer& gt)
 	if (mCurrFrameResource->Fence != 0 && dxCore.GetFence()->GetCompletedValue() < mCurrFrameResource->Fence)
 	{
 		HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
-		ThrowIfFailed(dxCore.GetFence()->SetEventOnCompletion(mCurrFrameResource->Fence, eventHandle));
+		THROW_IF_FAILED(dxCore.GetFence()->SetEventOnCompletion(mCurrFrameResource->Fence, eventHandle));
 		WaitForSingleObject(eventHandle, INFINITE);
 		CloseHandle(eventHandle);
 	}
@@ -141,11 +141,11 @@ void SpeckApp::Draw(const Timer& gt)
 
 	// Reuse the memory associated with command recording.
 	// We can only reset when the associated command lists have finished execution on the GPU.
-	ThrowIfFailed(cmdListAlloc->Reset());
+	THROW_IF_FAILED(cmdListAlloc->Reset());
 
 	// A command list can be reset after it has been added to the command queue via ExecuteCommandList.
 	// Reusing the command list reuses memory.
-	ThrowIfFailed(dxCore.GetCommandList()->Reset(cmdListAlloc.Get(), nullptr));
+	THROW_IF_FAILED(dxCore.GetCommandList()->Reset(cmdListAlloc.Get(), nullptr));
 
 	// Update that needs the command list
 	PreDrawUpdate(gt);
@@ -241,12 +241,12 @@ void SpeckApp::Draw(const Timer& gt)
 	//
 	// Done recording commands.
 	//
-	ThrowIfFailed(dxCore.GetCommandList()->Close());
+	THROW_IF_FAILED(dxCore.GetCommandList()->Close());
 	// Add the command list to the queue for execution.
 	ID3D12CommandList* cmdsLists[] = { dxCore.GetCommandList() };
 	dxCore.GetCommandQueue()->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
 	// Swap the back and front buffers
-	ThrowIfFailed(dxCore.GetSwapChain()->Present(0, 0));
+	THROW_IF_FAILED(dxCore.GetSwapChain()->Present(0, 0));
 	UpdateBackBuffer();
 
 	// Advance the fence value to mark commands up to this fence point.
@@ -340,7 +340,7 @@ void SpeckApp::BuildDefaultMaterials()
 	srvHeapDesc.NumDescriptors = MATERIAL_TEXTURES_COUNT;
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	ThrowIfFailed(dxCore.GetDevice()->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&texMat.mSrvDescriptorHeap)));
+	THROW_IF_FAILED(dxCore.GetDevice()->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&texMat.mSrvDescriptorHeap)));
 
 	// Fill out the heap with SRV descriptors for scene.
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(texMat.mSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
@@ -468,9 +468,9 @@ void SpeckApp::BuildRootSignatures()
 	{
 		::OutputDebugStringA((char*)errorBlob->GetBufferPointer());
 	}
-	ThrowIfFailed(hr);
+	THROW_IF_FAILED(hr);
 
-	ThrowIfFailed(dxCore.GetDevice()->CreateRootSignature(
+	THROW_IF_FAILED(dxCore.GetDevice()->CreateRootSignature(
 		0,
 		serializedRootSig->GetBufferPointer(),
 		serializedRootSig->GetBufferSize(),
@@ -508,9 +508,9 @@ void SpeckApp::BuildRootSignatures()
 	{
 		::OutputDebugStringA((char*)errorBlob->GetBufferPointer());
 	}
-	ThrowIfFailed(hr);
+	THROW_IF_FAILED(hr);
 
-	ThrowIfFailed(dxCore.GetDevice()->CreateRootSignature(
+	THROW_IF_FAILED(dxCore.GetDevice()->CreateRootSignature(
 		0,
 		serializedRootSig->GetBufferPointer(),
 		serializedRootSig->GetBufferSize(),
@@ -521,7 +521,7 @@ void SpeckApp::BuildScreenGeometry()
 {
 	auto &dxCore = GetEngineCore().GetDirectXCore();
 	GeometryGenerator gg;
-	GeometryGenerator::MeshData md = gg.CreateQuad(-1.0f, 1.0f, 2.0f, 2.0f, 0.0f);
+	GeometryGenerator::StaticMeshData md = gg.CreateQuad(-1.0f, 1.0f, 2.0f, 2.0f, 0.0f);
 
 	struct ScreenQuadVertex
 	{
@@ -541,10 +541,10 @@ void SpeckApp::BuildScreenGeometry()
 
 	auto geo = make_unique<MeshGeometry>();
 
-	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	THROW_IF_FAILED(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
 	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
 
-	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	THROW_IF_FAILED(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
 	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), md.Indices32.data(), ibByteSize);
 
 	geo->VertexBufferGPU = CreateDefaultBuffer(dxCore.GetDevice(),
@@ -571,7 +571,7 @@ void SpeckApp::BuildSpeckGeometry()
 {
 	auto &dxCore = GetEngineCore().GetDirectXCore();
 	GeometryGenerator gg;
-	GeometryGenerator::MeshData md = gg.CreateGeosphere(SpecksHandler::GetSpeckRadius(), 1);
+	GeometryGenerator::StaticMeshData md = gg.CreateGeosphere(SpecksHandler::GetSpeckRadius(), 1);
 
 	BoundingBox bounds;
 	XMStoreFloat3(&bounds.Center, XMVectorZero());
@@ -595,10 +595,10 @@ void SpeckApp::BuildSpeckGeometry()
 
 	auto geo = make_unique<MeshGeometry>();
 
-	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	THROW_IF_FAILED(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
 	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
 
-	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	THROW_IF_FAILED(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
 	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), md.Indices32.data(), ibByteSize);
 
 	geo->VertexBufferGPU = CreateDefaultBuffer(dxCore.GetDevice(),
@@ -626,10 +626,10 @@ void SpeckApp::BuildRegularGeometry()
 {
 	auto &dxCore = GetEngineCore().GetDirectXCore();
 	GeometryGenerator geoGen;
-	GeometryGenerator::MeshData box = geoGen.CreateBox(1.0f, 1.0f, 1.0f, 0);
-	GeometryGenerator::MeshData grid = geoGen.CreateGrid(20.0f, 30.0f, 60, 40);
-	GeometryGenerator::MeshData sphere = geoGen.CreateSphere(0.5f, 20, 20);
-	GeometryGenerator::MeshData cylinder = geoGen.CreateCylinder(0.5f, 0.3f, 3.0f, 20, 20);
+	GeometryGenerator::StaticMeshData box = geoGen.CreateBox(1.0f, 1.0f, 1.0f, 0);
+	GeometryGenerator::StaticMeshData grid = geoGen.CreateGrid(20.0f, 30.0f, 60, 40);
+	GeometryGenerator::StaticMeshData sphere = geoGen.CreateSphere(0.5f, 20, 20);
+	GeometryGenerator::StaticMeshData cylinder = geoGen.CreateCylinder(0.5f, 0.3f, 3.0f, 20, 20);
 
 	//
 	// We are concatenating all the geometry into one big vertex/index buffer.  So
@@ -686,7 +686,7 @@ void SpeckApp::BuildRegularGeometry()
 		sphere.Vertices.size() +
 		cylinder.Vertices.size();
 
-	vector<GeometryGenerator::Vertex> vertices(totalVertexCount);
+	vector<GeometryGenerator::StaticVertex> vertices(totalVertexCount);
 	UINT k = 0;
 	for (size_t i = 0; i < box.Vertices.size(); ++i, ++k)
 	{
@@ -711,15 +711,15 @@ void SpeckApp::BuildRegularGeometry()
 	indices.insert(indices.end(), begin(sphere.GetIndices16()), end(sphere.GetIndices16()));
 	indices.insert(indices.end(), begin(cylinder.GetIndices16()), end(cylinder.GetIndices16()));
 
-	const UINT vbByteSize = (UINT)vertices.size() * sizeof(GeometryGenerator::Vertex);
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(GeometryGenerator::StaticVertex);
 	const UINT ibByteSize = (UINT)indices.size() * sizeof(uint16_t);
 
 	auto geo = make_unique<MeshGeometry>();
 
-	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	THROW_IF_FAILED(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
 	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
 
-	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	THROW_IF_FAILED(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
 	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
 
 	geo->VertexBufferGPU = CreateDefaultBuffer(dxCore.GetDevice(),
@@ -728,7 +728,7 @@ void SpeckApp::BuildRegularGeometry()
 	geo->IndexBufferGPU = CreateDefaultBuffer(dxCore.GetDevice(),
 		dxCore.GetCommandList(), indices.data(), ibByteSize, geo->IndexBufferUploader);
 
-	geo->VertexByteStride = sizeof(GeometryGenerator::Vertex);
+	geo->VertexByteStride = sizeof(GeometryGenerator::StaticVertex);
 	geo->VertexBufferByteSize = vbByteSize;
 	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
 	geo->IndexBufferByteSize = ibByteSize;
@@ -747,9 +747,9 @@ void SpeckApp::BuildPSOs()
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc;
 
 	// Load CS shaders
-	const UINT numOfShaders = 6;
-	UINT resArray[] = { RT_SPECK_VS, RT_SPECK_PS, RT_DEFFERED_ASSEMBLER_VS, RT_DEFFERED_ASSEMBLER_PS, RT_STANDARD_VS, RT_STANDARD_PS };
-	char *keyArray[] = { "speckVS", "speckPS", "defferedAssemblerVS", "defferedAssemblerPS", "standardVS", "standardPS" };
+	UINT resArray[] = { RT_SPECK_VS, RT_SPECK_PS, RT_DEFFERED_ASSEMBLER_VS, RT_DEFFERED_ASSEMBLER_PS, RT_STATIC_MESH_VS, RT_STATIC_MESH_PS, RT_SKINNED_MESH_VS };
+	char *keyArray[] = { "speckVS", "speckPS", "defferedAssemblerVS", "defferedAssemblerPS", "staticMeshVS", "staticMeshPS", "skinnedMeshVS" };
+	const UINT numOfShaders = _countof(resArray);
 	HMODULE hMod = LoadLibraryEx(ENGINE_LIBRARY_NAME, NULL, LOAD_LIBRARY_AS_DATAFILE);
 	HRSRC hRes;
 	if (NULL != hMod)
@@ -763,7 +763,7 @@ void SpeckApp::BuildPSOs()
 				void *pData = LockResource(hgbl);
 				UINT32 sizeInBytes = SizeofResource(hMod, hRes);
 				ComPtr<ID3DBlob> temp;
-				ThrowIfFailed(D3DCreateBlob(sizeInBytes, temp.GetAddressOf()));
+				THROW_IF_FAILED(D3DCreateBlob(sizeInBytes, temp.GetAddressOf()));
 				memcpy((char*)temp->GetBufferPointer(), pData, sizeInBytes);
 				mShaders[keyArray[i]] = temp;
 			}
@@ -804,7 +804,7 @@ void SpeckApp::BuildPSOs()
 	psoDesc.SampleDesc.Count = dxCore.Get4xMsaaState() ? 4 : 1;
 	psoDesc.SampleDesc.Quality = dxCore.Get4xMsaaState() ? (dxCore.Get4xMsaaQuality() - 1) : 0;
 	psoDesc.DSVFormat = dxCore.GetDepthStencilFormat();
-	ThrowIfFailed(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mScreenObjPSO)));
+	THROW_IF_FAILED(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mScreenObjPSO)));
 
 	//
 	// PSO for instanced objects.
@@ -838,7 +838,7 @@ void SpeckApp::BuildPSOs()
 	psoDesc.SampleDesc.Count = dxCore.Get4xMsaaState() ? 4 : 1;
 	psoDesc.SampleDesc.Quality = dxCore.Get4xMsaaState() ? (dxCore.Get4xMsaaQuality() - 1) : 0;
 	psoDesc.DSVFormat = dxCore.GetDepthStencilFormat();
-	ThrowIfFailed(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&sWorld.mPSOGroups["instanced"]->mPSO)));
+	THROW_IF_FAILED(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&sWorld.mPSOGroups["instanced"]->mPSO)));
 
 	//
 	// PSO for static mesh objects.
@@ -855,11 +855,11 @@ void SpeckApp::BuildPSOs()
 	psoDesc.pRootSignature = mRootSignature.Get();
 	psoDesc.VS =
 	{
-		reinterpret_cast<BYTE*>(mShaders["standardVS"]->GetBufferPointer()), mShaders["standardVS"]->GetBufferSize()
+		reinterpret_cast<BYTE*>(mShaders["staticMeshVS"]->GetBufferPointer()), mShaders["staticMeshVS"]->GetBufferSize()
 	};
 	psoDesc.PS =
 	{
-		reinterpret_cast<BYTE*>(mShaders["standardPS"]->GetBufferPointer()), mShaders["standardPS"]->GetBufferSize()
+		reinterpret_cast<BYTE*>(mShaders["staticMeshPS"]->GetBufferPointer()), mShaders["staticMeshPS"]->GetBufferSize()
 	};
 	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
@@ -874,7 +874,43 @@ void SpeckApp::BuildPSOs()
 	psoDesc.SampleDesc.Count = dxCore.Get4xMsaaState() ? 4 : 1;
 	psoDesc.SampleDesc.Quality = dxCore.Get4xMsaaState() ? (dxCore.Get4xMsaaQuality() - 1) : 0;
 	psoDesc.DSVFormat = dxCore.GetDepthStencilFormat();
-	ThrowIfFailed(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&sWorld.mPSOGroups["static"]->mPSO)));
+	THROW_IF_FAILED(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&sWorld.mPSOGroups["static"]->mPSO)));
+
+	//
+	// PSO for skinned mesh objects (skeletal body).
+	//
+	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+	inputLayout =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+	};
+	psoDesc.InputLayout = { inputLayout.data(), (UINT)inputLayout.size() };
+	psoDesc.pRootSignature = mRootSignature.Get();
+	psoDesc.VS =
+	{
+		reinterpret_cast<BYTE*>(mShaders["skinnedMeshVS"]->GetBufferPointer()), mShaders["skinnedMeshVS"]->GetBufferSize()
+	};
+	psoDesc.PS =
+	{
+		reinterpret_cast<BYTE*>(mShaders["staticMeshPS"]->GetBufferPointer()), mShaders["staticMeshPS"]->GetBufferSize()
+	};
+	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	psoDesc.SampleMask = UINT_MAX;
+	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	psoDesc.NumRenderTargets = DEFERRED_RENDER_TARGETS_COUNT;
+	for (int i = 0; i < DEFERRED_RENDER_TARGETS_COUNT; ++i)
+	{
+		psoDesc.RTVFormats[i] = mDeferredRTFormats[i];
+	}
+	psoDesc.SampleDesc.Count = dxCore.Get4xMsaaState() ? 4 : 1;
+	psoDesc.SampleDesc.Quality = dxCore.Get4xMsaaState() ? (dxCore.Get4xMsaaQuality() - 1) : 0;
+	psoDesc.DSVFormat = dxCore.GetDepthStencilFormat();
+	THROW_IF_FAILED(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&sWorld.mPSOGroups["skeletalBody"]->mPSO)));
 }
 
 void SpeckApp::BuildFrameResources()
@@ -921,7 +957,7 @@ void SpeckApp::BuildDeferredRenderTargetsAndBuffers()
 	optClearDVB.Format = GetEngineCore().GetDirectXCore().GetDepthStencilFormat();
 	optClearDVB.DepthStencil.Depth = 1.0f;
 	optClearDVB.DepthStencil.Stencil = 0;
-	ThrowIfFailed(device->CreateCommittedResource(
+	THROW_IF_FAILED(device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&depthStencilDesc,
@@ -967,7 +1003,7 @@ void SpeckApp::BuildDeferredRenderTargetsAndBuffers()
 	optClear1.Format = diffuseTexDesc.Format;
 	memcpy(optClear1.Color, mDeferredRTClearColors[0], sizeof(XMVECTORF32));
 	GetEngineCore().GetDirectXCore().GetClearRTColor(optClear1.Color);
-	ThrowIfFailed(device->CreateCommittedResource(
+	THROW_IF_FAILED(device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&diffuseTexDesc,
@@ -992,7 +1028,7 @@ void SpeckApp::BuildDeferredRenderTargetsAndBuffers()
 	D3D12_CLEAR_VALUE optClear2;
 	optClear2.Format = normalTexDesc.Format;
 	memcpy(optClear2.Color, mDeferredRTClearColors[1], sizeof(XMVECTORF32));
-	ThrowIfFailed(device->CreateCommittedResource(
+	THROW_IF_FAILED(device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&normalTexDesc,
@@ -1017,7 +1053,7 @@ void SpeckApp::BuildDeferredRenderTargetsAndBuffers()
 	D3D12_CLEAR_VALUE optClear3;
 	optClear3.Format = depthTexDesc.Format;
 	memcpy(optClear3.Color, mDeferredRTClearColors[2], sizeof(XMVECTORF32));
-	ThrowIfFailed(device->CreateCommittedResource(
+	THROW_IF_FAILED(device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&depthTexDesc,
@@ -1042,7 +1078,7 @@ void SpeckApp::BuildDeferredRenderTargetsAndBuffers()
 	D3D12_CLEAR_VALUE optClear4;
 	optClear4.Format = pbrDataTexDesc.Format;
 	memcpy(optClear4.Color, mDeferredRTClearColors[3], sizeof(XMVECTORF32));
-	ThrowIfFailed(device->CreateCommittedResource(
+	THROW_IF_FAILED(device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&pbrDataTexDesc,
@@ -1067,7 +1103,7 @@ void SpeckApp::BuildDeferredRenderTargetsAndBuffers()
 	srvHeapDescPostProcess.NumDescriptors = DEFERRED_RENDER_TARGETS_COUNT;
 	srvHeapDescPostProcess.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDescPostProcess.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	ThrowIfFailed(dxCore.GetDevice()->CreateDescriptorHeap(&srvHeapDescPostProcess, IID_PPV_ARGS(&mPostProcessSrvDescriptorHeap)));
+	THROW_IF_FAILED(dxCore.GetDevice()->CreateDescriptorHeap(&srvHeapDescPostProcess, IID_PPV_ARGS(&mPostProcessSrvDescriptorHeap)));
 
 	// Fill out the heap with SRV descriptors for post process.
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptorPostProcess(mPostProcessSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());

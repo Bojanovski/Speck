@@ -24,7 +24,7 @@ void Speck::BuildRandomVectorTexture(ID3D12Device * device, ID3D12GraphicsComman
 	texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	texDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-	ThrowIfFailed(device->CreateCommittedResource(
+	THROW_IF_FAILED(device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&texDesc,
@@ -40,7 +40,7 @@ void Speck::BuildRandomVectorTexture(ID3D12Device * device, ID3D12GraphicsComman
 	const UINT num2DSubresources = texDesc.DepthOrArraySize * texDesc.MipLevels;
 	const UINT64 uploadBufferSize = GetRequiredIntermediateSize(mRandomVectorMap.Get(), 0, num2DSubresources);
 
-	ThrowIfFailed(device->CreateCommittedResource(
+	THROW_IF_FAILED(device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 		D3D12_HEAP_FLAG_NONE,
 		&CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize),
@@ -95,7 +95,7 @@ void Speck::BuildColorTexture(const XMFLOAT4 &color, ID3D12Device * device, ID3D
 	texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	texDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-	ThrowIfFailed(device->CreateCommittedResource(
+	THROW_IF_FAILED(device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&texDesc,
@@ -111,7 +111,7 @@ void Speck::BuildColorTexture(const XMFLOAT4 &color, ID3D12Device * device, ID3D
 	const UINT num2DSubresources = texDesc.DepthOrArraySize * texDesc.MipLevels;
 	const UINT64 uploadBufferSize = GetRequiredIntermediateSize(mColorMap.Get(), 0, num2DSubresources);
 
-	ThrowIfFailed(device->CreateCommittedResource(
+	THROW_IF_FAILED(device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 		D3D12_HEAP_FLAG_NONE,
 		&CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize),

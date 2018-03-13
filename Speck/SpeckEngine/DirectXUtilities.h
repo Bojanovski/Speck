@@ -10,8 +10,8 @@
 #include "d3dx12.h"
 #include <string>
 
-#define ReleaseCom(com) if (com) { (com)->Release();  (com) = NULL; }
-#define ThrowIfFailed(x)																			\
+#define RELEASE_COM(com) if (com) { (com)->Release();  (com) = NULL; }
+#define THROW_IF_FAILED(x)																			\
 {																									\
     HRESULT hr__ = (x);																				\
     if(FAILED(hr__)) { THROW(L"Operation returned with a value that indicates failure."); }			\
@@ -50,7 +50,7 @@ namespace Speck
 		if (errors != nullptr)
 			OutputDebugStringA((char*)errors->GetBufferPointer());
 
-		ThrowIfFailed(hr);
+		THROW_IF_FAILED(hr);
 
 		return byteCode;
 	}
@@ -64,7 +64,7 @@ namespace Speck
 		fin.seekg(0, std::ios_base::beg);
 
 		Microsoft::WRL::ComPtr<ID3DBlob> blob;
-		ThrowIfFailed(D3DCreateBlob(size, blob.GetAddressOf()));
+		THROW_IF_FAILED(D3DCreateBlob(size, blob.GetAddressOf()));
 
 		fin.read((char*)blob->GetBufferPointer(), size);
 		fin.close();
@@ -77,7 +77,7 @@ namespace Speck
 		Microsoft::WRL::ComPtr<ID3D12Resource> defaultBuffer;
 
 		// Create the actual default buffer resource.
-		ThrowIfFailed(device->CreateCommittedResource(
+		THROW_IF_FAILED(device->CreateCommittedResource(
 			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 			D3D12_HEAP_FLAG_NONE,
 			&rd,
@@ -87,7 +87,7 @@ namespace Speck
 
 		// In order to copy CPU memory data into our default buffer, we need to create
 		// an intermediate upload heap. 
-		ThrowIfFailed(device->CreateCommittedResource(
+		THROW_IF_FAILED(device->CreateCommittedResource(
 			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 			D3D12_HEAP_FLAG_NONE,
 			&CD3DX12_RESOURCE_DESC::Buffer(byteSize),

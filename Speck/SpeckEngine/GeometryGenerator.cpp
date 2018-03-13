@@ -7,55 +7,55 @@
 using namespace DirectX;
 using namespace Speck;
 
-GeometryGenerator::MeshData GeometryGenerator::CreateBox(float width, float height, float depth, uint32 numSubdivisions)
+GeometryGenerator::StaticMeshData GeometryGenerator::CreateBox(float width, float height, float depth, uint32 numSubdivisions)
 {
-    MeshData meshData;
+	StaticMeshData meshData;
 
     //
 	// Create the vertices.
 	//
 
-	Vertex v[24];
+	StaticVertex v[24];
 
 	float w2 = 0.5f*width;
 	float h2 = 0.5f*height;
 	float d2 = 0.5f*depth;
     
 	// Fill in the front face vertex data.
-	v[0] = Vertex(-w2, -h2, -d2, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
-	v[1] = Vertex(-w2, +h2, -d2, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
-	v[2] = Vertex(+w2, +h2, -d2, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
-	v[3] = Vertex(+w2, -h2, -d2, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+	v[0] = StaticVertex(-w2, -h2, -d2, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+	v[1] = StaticVertex(-w2, +h2, -d2, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+	v[2] = StaticVertex(+w2, +h2, -d2, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+	v[3] = StaticVertex(+w2, -h2, -d2, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f);
 
 	// Fill in the back face vertex data.
-	v[4] = Vertex(-w2, -h2, +d2, 0.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f);
-	v[5] = Vertex(+w2, -h2, +d2, 0.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
-	v[6] = Vertex(+w2, +h2, +d2, 0.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
-	v[7] = Vertex(-w2, +h2, +d2, 0.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+	v[4] = StaticVertex(-w2, -h2, +d2, 0.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+	v[5] = StaticVertex(+w2, -h2, +d2, 0.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+	v[6] = StaticVertex(+w2, +h2, +d2, 0.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+	v[7] = StaticVertex(-w2, +h2, +d2, 0.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
 
 	// Fill in the top face vertex data.
-	v[8]  = Vertex(-w2, +h2, -d2, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
-	v[9]  = Vertex(-w2, +h2, +d2, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
-	v[10] = Vertex(+w2, +h2, +d2, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
-	v[11] = Vertex(+w2, +h2, -d2, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+	v[8]  = StaticVertex(-w2, +h2, -d2, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+	v[9]  = StaticVertex(-w2, +h2, +d2, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+	v[10] = StaticVertex(+w2, +h2, +d2, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+	v[11] = StaticVertex(+w2, +h2, -d2, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f);
 
 	// Fill in the bottom face vertex data.
-	v[12] = Vertex(-w2, -h2, -d2, 0.0f, -1.0f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f);
-	v[13] = Vertex(+w2, -h2, -d2, 0.0f, -1.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
-	v[14] = Vertex(+w2, -h2, +d2, 0.0f, -1.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
-	v[15] = Vertex(-w2, -h2, +d2, 0.0f, -1.0f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+	v[12] = StaticVertex(-w2, -h2, -d2, 0.0f, -1.0f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+	v[13] = StaticVertex(+w2, -h2, -d2, 0.0f, -1.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+	v[14] = StaticVertex(+w2, -h2, +d2, 0.0f, -1.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+	v[15] = StaticVertex(-w2, -h2, +d2, 0.0f, -1.0f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
 
 	// Fill in the left face vertex data.
-	v[16] = Vertex(-w2, -h2, +d2, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f);
-	v[17] = Vertex(-w2, +h2, +d2, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f);
-	v[18] = Vertex(-w2, +h2, -d2, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f);
-	v[19] = Vertex(-w2, -h2, -d2, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f);
+	v[16] = StaticVertex(-w2, -h2, +d2, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f);
+	v[17] = StaticVertex(-w2, +h2, +d2, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f);
+	v[18] = StaticVertex(-w2, +h2, -d2, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f);
+	v[19] = StaticVertex(-w2, -h2, -d2, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f);
 
 	// Fill in the right face vertex data.
-	v[20] = Vertex(+w2, -h2, -d2, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f);
-	v[21] = Vertex(+w2, +h2, -d2, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f);
-	v[22] = Vertex(+w2, +h2, +d2, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f);
-	v[23] = Vertex(+w2, -h2, +d2, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f);
+	v[20] = StaticVertex(+w2, -h2, -d2, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f);
+	v[21] = StaticVertex(+w2, +h2, -d2, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f);
+	v[22] = StaticVertex(+w2, +h2, +d2, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f);
+	v[23] = StaticVertex(+w2, -h2, +d2, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f);
 
 	meshData.Vertices.assign(&v[0], &v[24]);
  
@@ -100,9 +100,9 @@ GeometryGenerator::MeshData GeometryGenerator::CreateBox(float width, float heig
     return meshData;
 }
 
-GeometryGenerator::MeshData GeometryGenerator::CreateSphere(float radius, uint32 sliceCount, uint32 stackCount)
+GeometryGenerator::StaticMeshData GeometryGenerator::CreateSphere(float radius, uint32 sliceCount, uint32 stackCount)
 {
-    MeshData meshData;
+	StaticMeshData meshData;
 
 	//
 	// Compute the vertices stating at the top pole and moving down the stacks.
@@ -119,8 +119,7 @@ GeometryGenerator::MeshData GeometryGenerator::CreateSphere(float radius, uint32
         for(uint32 j = 0; j <= sliceCount; ++j)
 		{
 			float theta = j*thetaStep;
-
-			Vertex v;
+			StaticVertex v;
 
 			// spherical to cartesian
 			v.Position.x = radius*sinf(phi)*cosf(theta);
@@ -145,15 +144,15 @@ GeometryGenerator::MeshData GeometryGenerator::CreateSphere(float radius, uint32
 		}
 	}
 
-	Vertex topVertex(0.0f, +radius, 0.0f, 0.0f, +1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
-	Vertex bottomVertex(0.0f, -radius, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+	StaticVertex topVertex(0.0f, +radius, 0.0f, 0.0f, +1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+	StaticVertex bottomVertex(0.0f, -radius, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
 
 	// Add top vertices
 	int topIndexStart = (int)meshData.Vertices.size();
 	for (uint32 j = 0; j <= sliceCount; ++j)
 	{
 		float theta = (2.0f*j + 1.0f)*0.5f*thetaStep; // must be in the middle of the slice
-		Vertex temp = topVertex;
+		StaticVertex temp = topVertex;
 		temp.TexC.x = theta / XM_2PI; // correct the x texture coordinate
 		meshData.Vertices.push_back(temp);
 	}
@@ -162,7 +161,7 @@ GeometryGenerator::MeshData GeometryGenerator::CreateSphere(float radius, uint32
 	for (uint32 j = 0; j <= sliceCount; ++j)
 	{
 		float theta = (2.0f*j + 1.0f)*0.5f*thetaStep; // must be in the middle of the slice
-		Vertex temp = bottomVertex;
+		StaticVertex temp = bottomVertex;
 		temp.TexC.x = theta / XM_2PI; // correct the x texture coordinate
 		meshData.Vertices.push_back(temp);
 	}
@@ -217,10 +216,10 @@ GeometryGenerator::MeshData GeometryGenerator::CreateSphere(float radius, uint32
     return meshData;
 }
  
-void GeometryGenerator::Subdivide(MeshData& meshData)
+void GeometryGenerator::Subdivide(StaticMeshData& meshData)
 {
 	// Save a copy of the input geometry.
-	MeshData inputCopy = meshData;
+	StaticMeshData inputCopy = meshData;
 
 
 	meshData.Vertices.resize(0);
@@ -239,17 +238,17 @@ void GeometryGenerator::Subdivide(MeshData& meshData)
 	uint32 numTris = (uint32)inputCopy.Indices32.size()/3;
 	for(uint32 i = 0; i < numTris; ++i)
 	{
-		Vertex v0 = inputCopy.Vertices[ inputCopy.Indices32[i*3+0] ];
-		Vertex v1 = inputCopy.Vertices[ inputCopy.Indices32[i*3+1] ];
-		Vertex v2 = inputCopy.Vertices[ inputCopy.Indices32[i*3+2] ];
+		StaticVertex v0 = inputCopy.Vertices[ inputCopy.Indices32[i*3+0] ];
+		StaticVertex v1 = inputCopy.Vertices[ inputCopy.Indices32[i*3+1] ];
+		StaticVertex v2 = inputCopy.Vertices[ inputCopy.Indices32[i*3+2] ];
 
 		//
 		// Generate the midpoints.
 		//
 
-        Vertex m0 = MidPoint(v0, v1);
-        Vertex m1 = MidPoint(v1, v2);
-        Vertex m2 = MidPoint(v0, v2);
+        StaticVertex m0 = MidPoint(v0, v1);
+        StaticVertex m1 = MidPoint(v1, v2);
+        StaticVertex m2 = MidPoint(v0, v2);
 
 		//
 		// Add new geometry.
@@ -280,7 +279,7 @@ void GeometryGenerator::Subdivide(MeshData& meshData)
 	}
 }
 
-GeometryGenerator::Vertex GeometryGenerator::MidPoint(const Vertex& v0, const Vertex& v1)
+GeometryGenerator::StaticVertex GeometryGenerator::MidPoint(const StaticVertex& v0, const StaticVertex& v1)
 {
     XMVECTOR p0 = XMLoadFloat3(&v0.Position);
     XMVECTOR p1 = XMLoadFloat3(&v1.Position);
@@ -301,7 +300,7 @@ GeometryGenerator::Vertex GeometryGenerator::MidPoint(const Vertex& v0, const Ve
     XMVECTOR tangent = XMVector3Normalize(0.5f*(tan0+tan1));
     XMVECTOR tex = 0.5f*(tex0 + tex1);
 
-    Vertex v;
+	StaticVertex v;
     XMStoreFloat3(&v.Position, pos);
     XMStoreFloat3(&v.Normal, normal);
     XMStoreFloat3(&v.TangentU, tangent);
@@ -310,9 +309,9 @@ GeometryGenerator::Vertex GeometryGenerator::MidPoint(const Vertex& v0, const Ve
     return v;
 }
 
-GeometryGenerator::MeshData GeometryGenerator::CreateGeosphere(float radius, uint32 numSubdivisions)
+GeometryGenerator::StaticMeshData GeometryGenerator::CreateGeosphere(float radius, uint32 numSubdivisions)
 {
-    MeshData meshData;
+	StaticMeshData meshData;
 
 	// Put a cap on the number of subdivisions.
     numSubdivisions = std::min<uint32>(numSubdivisions, 6u);
@@ -385,9 +384,9 @@ GeometryGenerator::MeshData GeometryGenerator::CreateGeosphere(float radius, uin
     return meshData;
 }
 
-GeometryGenerator::MeshData GeometryGenerator::CreateCylinder(float bottomRadius, float topRadius, float height, uint32 sliceCount, uint32 stackCount)
+GeometryGenerator::StaticMeshData GeometryGenerator::CreateCylinder(float bottomRadius, float topRadius, float height, uint32 sliceCount, uint32 stackCount)
 {
-    MeshData meshData;
+	StaticMeshData meshData;
 
 	//
 	// Build Stacks.
@@ -410,7 +409,7 @@ GeometryGenerator::MeshData GeometryGenerator::CreateCylinder(float bottomRadius
 		float dTheta = 2.0f*XM_PI/sliceCount;
 		for(uint32 j = 0; j <= sliceCount; ++j)
 		{
-			Vertex vertex;
+			StaticVertex vertex;
 
 			float c = cosf(j*dTheta);
 			float s = sinf(j*dTheta);
@@ -480,7 +479,7 @@ GeometryGenerator::MeshData GeometryGenerator::CreateCylinder(float bottomRadius
 }
 
 void GeometryGenerator::BuildCylinderTopCap(float bottomRadius, float topRadius, float height,
-											uint32 sliceCount, uint32 stackCount, MeshData& meshData)
+											uint32 sliceCount, uint32 stackCount, StaticMeshData& meshData)
 {
 	uint32 baseIndex = (uint32)meshData.Vertices.size();
 
@@ -498,11 +497,11 @@ void GeometryGenerator::BuildCylinderTopCap(float bottomRadius, float topRadius,
 		float u = x/height + 0.5f;
 		float v = z/height + 0.5f;
 
-		meshData.Vertices.push_back( Vertex(x, y, z, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, u, v) );
+		meshData.Vertices.push_back(StaticVertex(x, y, z, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, u, v) );
 	}
 
 	// Cap center vertex.
-	meshData.Vertices.push_back( Vertex(0.0f, y, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.5f, 0.5f) );
+	meshData.Vertices.push_back(StaticVertex(0.0f, y, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.5f, 0.5f) );
 
 	// Index of center vertex.
 	uint32 centerIndex = (uint32)meshData.Vertices.size()-1;
@@ -516,7 +515,7 @@ void GeometryGenerator::BuildCylinderTopCap(float bottomRadius, float topRadius,
 }
 
 void GeometryGenerator::BuildCylinderBottomCap(float bottomRadius, float topRadius, float height,
-											   uint32 sliceCount, uint32 stackCount, MeshData& meshData)
+											   uint32 sliceCount, uint32 stackCount, StaticMeshData& meshData)
 {
 	// 
 	// Build bottom cap.
@@ -537,11 +536,11 @@ void GeometryGenerator::BuildCylinderBottomCap(float bottomRadius, float topRadi
 		float u = x/height + 0.5f;
 		float v = z/height + 0.5f;
 
-		meshData.Vertices.push_back( Vertex(x, y, z, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, u, v) );
+		meshData.Vertices.push_back(StaticVertex(x, y, z, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, u, v) );
 	}
 
 	// Cap center vertex.
-	meshData.Vertices.push_back( Vertex(0.0f, y, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.5f, 0.5f) );
+	meshData.Vertices.push_back(StaticVertex(0.0f, y, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.5f, 0.5f) );
 
 	// Cache the index of center vertex.
 	uint32 centerIndex = (uint32)meshData.Vertices.size()-1;
@@ -554,9 +553,9 @@ void GeometryGenerator::BuildCylinderBottomCap(float bottomRadius, float topRadi
 	}
 }
 
-GeometryGenerator::MeshData GeometryGenerator::CreateGrid(float width, float depth, uint32 m, uint32 n)
+GeometryGenerator::StaticMeshData GeometryGenerator::CreateGrid(float width, float depth, uint32 m, uint32 n)
 {
-    MeshData meshData;
+	StaticMeshData meshData;
 
 	uint32 vertexCount = m*n;
 	uint32 faceCount   = (m-1)*(n-1)*2;
@@ -619,33 +618,33 @@ GeometryGenerator::MeshData GeometryGenerator::CreateGrid(float width, float dep
     return meshData;
 }
 
-GeometryGenerator::MeshData GeometryGenerator::CreateQuad(float x, float y, float w, float h, float depth)
+GeometryGenerator::StaticMeshData GeometryGenerator::CreateQuad(float x, float y, float w, float h, float depth)
 {
-    MeshData meshData;
+	StaticMeshData meshData;
 
 	meshData.Vertices.resize(4);
 	meshData.Indices32.resize(6);
 
 	// Position coordinates specified in NDC space.
-	meshData.Vertices[0] = Vertex(
+	meshData.Vertices[0] = StaticVertex(
         x, y - h, depth,
 		0.0f, 0.0f, -1.0f,
 		1.0f, 0.0f, 0.0f,
 		0.0f, 1.0f);
 
-	meshData.Vertices[1] = Vertex(
+	meshData.Vertices[1] = StaticVertex(
 		x, y, depth,
 		0.0f, 0.0f, -1.0f,
 		1.0f, 0.0f, 0.0f,
 		0.0f, 0.0f);
 
-	meshData.Vertices[2] = Vertex(
+	meshData.Vertices[2] = StaticVertex(
 		x+w, y, depth,
 		0.0f, 0.0f, -1.0f,
 		1.0f, 0.0f, 0.0f,
 		1.0f, 0.0f);
 
-	meshData.Vertices[3] = Vertex(
+	meshData.Vertices[3] = StaticVertex(
 		x+w, y-h, depth,
 		0.0f, 0.0f, -1.0f,
 		1.0f, 0.0f, 0.0f,
@@ -662,7 +661,7 @@ GeometryGenerator::MeshData GeometryGenerator::CreateQuad(float x, float y, floa
     return meshData;
 }
 
-BoundingBox GeometryGenerator::MeshData::CalculateBounds()
+BoundingBox GeometryGenerator::StaticMeshData::CalculateBounds()
 {
 	XMFLOAT3 vMinf3(+MathHelper::Infinity, +MathHelper::Infinity, +MathHelper::Infinity);
 	XMFLOAT3 vMaxf3(-MathHelper::Infinity, -MathHelper::Infinity, -MathHelper::Infinity);

@@ -7,7 +7,7 @@ using namespace Speck;
 
 FrameResource::FrameResource(ID3D12Device* device, UINT passCount, UINT maxRenderItemsCount, UINT materialCount)
 {
-    ThrowIfFailed(device->CreateCommandAllocator(
+    THROW_IF_FAILED(device->CreateCommandAllocator(
         D3D12_COMMAND_LIST_TYPE_DIRECT,
 		IID_PPV_ARGS(CmdListAlloc.GetAddressOf())));
 

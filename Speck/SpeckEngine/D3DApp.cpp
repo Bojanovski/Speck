@@ -169,7 +169,7 @@ static HANDLE self;
 		rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 		rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 		rtvHeapDesc.NodeMask = 0;
-		ThrowIfFailed(GetEngineCore().mDirectXCore->md3dDevice->CreateDescriptorHeap(
+		THROW_IF_FAILED(GetEngineCore().mDirectXCore->md3dDevice->CreateDescriptorHeap(
 			&rtvHeapDesc, IID_PPV_ARGS(GetEngineCore().mDirectXCore->mRtvHeap.GetAddressOf())));
 
 		D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc;
@@ -177,7 +177,7 @@ static HANDLE self;
 		dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
 		dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 		dsvHeapDesc.NodeMask = 0;
-		ThrowIfFailed(GetEngineCore().mDirectXCore->md3dDevice->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(GetEngineCore().mDirectXCore->mDsvHeap.GetAddressOf())));
+		THROW_IF_FAILED(GetEngineCore().mDirectXCore->md3dDevice->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(GetEngineCore().mDirectXCore->mDsvHeap.GetAddressOf())));
 	}
 
 	void D3DApp::OnResize()
@@ -188,7 +188,7 @@ static HANDLE self;
 
 		// Flush before changing any resources.
 		GetEngineCore().GetDirectXCore().FlushCommandQueue();
-		ThrowIfFailed(GetEngineCore().mDirectXCore->mCommandList->Reset(GetEngineCore().mDirectXCore->mDirectCmdListAlloc.Get(), nullptr));
+		THROW_IF_FAILED(GetEngineCore().mDirectXCore->mCommandList->Reset(GetEngineCore().mDirectXCore->mDirectCmdListAlloc.Get(), nullptr));
 
 		// Release the previous resources we will be recreating.
 		for (int i = 0; i < SWAP_CHAIN_BUFFER_COUNT; ++i)
@@ -196,7 +196,7 @@ static HANDLE self;
 		GetEngineCore().mDirectXCore->mDepthStencilBuffer.Reset();
 
 		// Resize the swap chain.
-		ThrowIfFailed(GetEngineCore().mDirectXCore->mSwapChain->ResizeBuffers(
+		THROW_IF_FAILED(GetEngineCore().mDirectXCore->mSwapChain->ResizeBuffers(
 			SWAP_CHAIN_BUFFER_COUNT,
 			GetEngineCore().mDirectXCore->mClientWidth, GetEngineCore().mDirectXCore->mClientHeight,
 			GetEngineCore().mDirectXCore->mBackBufferFormat,
@@ -207,7 +207,7 @@ static HANDLE self;
 		CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHeapHandle(GetEngineCore().mDirectXCore->mRtvHeap->GetCPUDescriptorHandleForHeapStart());
 		for (UINT i = 0; i < SWAP_CHAIN_BUFFER_COUNT; i++)
 		{
-			ThrowIfFailed(GetEngineCore().mDirectXCore->mSwapChain->GetBuffer(i, IID_PPV_ARGS(&GetEngineCore().mDirectXCore->mSwapChainBuffer[i])));
+			THROW_IF_FAILED(GetEngineCore().mDirectXCore->mSwapChain->GetBuffer(i, IID_PPV_ARGS(&GetEngineCore().mDirectXCore->mSwapChainBuffer[i])));
 			GetEngineCore().mDirectXCore->md3dDevice->CreateRenderTargetView(GetEngineCore().mDirectXCore->mSwapChainBuffer[i].Get(), nullptr, rtvHeapHandle);
 			rtvHeapHandle.Offset(1, GetEngineCore().mDirectXCore->mRtvDescriptorSize);
 		}
@@ -237,7 +237,7 @@ static HANDLE self;
 		optClear.Format = GetEngineCore().mDirectXCore->mDepthStencilFormat;
 		optClear.DepthStencil.Depth = 1.0f;
 		optClear.DepthStencil.Stencil = 0;
-		ThrowIfFailed(GetEngineCore().mDirectXCore->md3dDevice->CreateCommittedResource(
+		THROW_IF_FAILED(GetEngineCore().mDirectXCore->md3dDevice->CreateCommittedResource(
 			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 			D3D12_HEAP_FLAG_NONE,
 			&depthStencilDesc,
@@ -258,7 +258,7 @@ static HANDLE self;
 			D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE));
 
 		// Execute the resize commands.
-		ThrowIfFailed(GetEngineCore().mDirectXCore->mCommandList->Close());
+		THROW_IF_FAILED(GetEngineCore().mDirectXCore->mCommandList->Close());
 		ID3D12CommandList* cmdsLists[] = { GetEngineCore().mDirectXCore->mCommandList.Get() };
 		GetEngineCore().mDirectXCore->mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
 
@@ -477,12 +477,12 @@ static HANDLE self;
 		// Enable the D3D12 debug layer.
 		{
 			ComPtr<ID3D12Debug> debugController;
-			ThrowIfFailed(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)));
+			THROW_IF_FAILED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)));
 			debugController->EnableDebugLayer();
 		}
 #endif
 
-		ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&GetEngineCore().mDirectXCore->mdxgiFactory)));
+		THROW_IF_FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&GetEngineCore().mDirectXCore->mdxgiFactory)));
 
 		// Try to create hardware device.
 		HRESULT hardwareResult = D3D12CreateDevice(
@@ -494,15 +494,15 @@ static HANDLE self;
 		if (FAILED(hardwareResult))
 		{
 			ComPtr<IDXGIAdapter> pWarpAdapter;
-			ThrowIfFailed(GetEngineCore().mDirectXCore->mdxgiFactory->EnumWarpAdapter(IID_PPV_ARGS(&pWarpAdapter)));
+			THROW_IF_FAILED(GetEngineCore().mDirectXCore->mdxgiFactory->EnumWarpAdapter(IID_PPV_ARGS(&pWarpAdapter)));
 
-			ThrowIfFailed(D3D12CreateDevice(
+			THROW_IF_FAILED(D3D12CreateDevice(
 				pWarpAdapter.Get(),
 				D3D_FEATURE_LEVEL_11_0,
 				IID_PPV_ARGS(&GetEngineCore().mDirectXCore->md3dDevice)));
 		}
 
-		ThrowIfFailed(GetEngineCore().mDirectXCore->md3dDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE,
+		THROW_IF_FAILED(GetEngineCore().mDirectXCore->md3dDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE,
 			IID_PPV_ARGS(&GetEngineCore().mDirectXCore->mFence)));
 
 
@@ -520,7 +520,7 @@ static HANDLE self;
 		msQualityLevels.SampleCount = 4;
 		msQualityLevels.Flags = D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE;
 		msQualityLevels.NumQualityLevels = 0;
-		ThrowIfFailed(GetEngineCore().mDirectXCore->md3dDevice->CheckFeatureSupport(
+		THROW_IF_FAILED(GetEngineCore().mDirectXCore->md3dDevice->CheckFeatureSupport(
 			D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS,
 			&msQualityLevels,
 			sizeof(msQualityLevels)));
@@ -543,13 +543,13 @@ static HANDLE self;
 		D3D12_COMMAND_QUEUE_DESC queueDesc = {};
 		queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 		queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-		ThrowIfFailed(GetEngineCore().mDirectXCore->md3dDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&GetEngineCore().mDirectXCore->mCommandQueue)));
+		THROW_IF_FAILED(GetEngineCore().mDirectXCore->md3dDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&GetEngineCore().mDirectXCore->mCommandQueue)));
 
-		ThrowIfFailed(GetEngineCore().mDirectXCore->md3dDevice->CreateCommandAllocator(
+		THROW_IF_FAILED(GetEngineCore().mDirectXCore->md3dDevice->CreateCommandAllocator(
 			D3D12_COMMAND_LIST_TYPE_DIRECT,
 			IID_PPV_ARGS(GetEngineCore().mDirectXCore->mDirectCmdListAlloc.GetAddressOf())));
 
-		ThrowIfFailed(GetEngineCore().mDirectXCore->md3dDevice->CreateCommandList(
+		THROW_IF_FAILED(GetEngineCore().mDirectXCore->md3dDevice->CreateCommandList(
 			0,
 			D3D12_COMMAND_LIST_TYPE_DIRECT,
 			GetEngineCore().mDirectXCore->mDirectCmdListAlloc.Get(),		// Associated command allocator
@@ -585,7 +585,7 @@ static HANDLE self;
 		sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
 		// Note: Swap chain uses queue to perform flush.
-		ThrowIfFailed(GetEngineCore().mDirectXCore->mdxgiFactory->CreateSwapChain(
+		THROW_IF_FAILED(GetEngineCore().mDirectXCore->mdxgiFactory->CreateSwapChain(
 			GetEngineCore().mDirectXCore->mCommandQueue.Get(),
 			&sd,
 			GetEngineCore().mDirectXCore->mSwapChain.GetAddressOf()));
@@ -697,7 +697,7 @@ static HANDLE self;
 		for (size_t i = 0; i < adapterList.size(); ++i)
 		{
 			//LogAdapterOutputs(adapterList[i]);
-			ReleaseCom(adapterList[i]);
+			RELEASE_COM(adapterList[i]);
 		}
 	}
 
@@ -717,7 +717,7 @@ static HANDLE self;
 
 			LogOutputDisplayModes(output, GetEngineCore().mDirectXCore->mBackBufferFormat);
 
-			ReleaseCom(output);
+			RELEASE_COM(output);
 
 			++i;
 		}

@@ -27,10 +27,10 @@ namespace Speck
 		using uint16 = std::uint16_t;
 		using uint32 = std::uint32_t;
 
-		struct Vertex
+		struct StaticVertex
 		{
-			Vertex() {}
-			Vertex(
+			StaticVertex() {}
+			StaticVertex(
 				const DirectX::XMFLOAT3& p,
 				const DirectX::XMFLOAT3& n,
 				const DirectX::XMFLOAT3& t,
@@ -38,8 +38,9 @@ namespace Speck
 				Position(p),
 				Normal(n),
 				TangentU(t),
-				TexC(uv) {}
-			Vertex(
+				TexC(uv) 
+			{}
+			StaticVertex(
 				float px, float py, float pz,
 				float nx, float ny, float nz,
 				float tx, float ty, float tz,
@@ -55,9 +56,32 @@ namespace Speck
 			DirectX::XMFLOAT2 TexC;
 		};
 
-		struct MeshData
+		struct SkinnedVertex : public StaticVertex
 		{
-			std::vector<Vertex> Vertices;
+			SkinnedVertex() {}
+			SkinnedVertex(
+				const DirectX::XMFLOAT3& p,
+				const DirectX::XMFLOAT3& n,
+				const DirectX::XMFLOAT3& t,
+				const DirectX::XMFLOAT2& uv,
+				const DirectX::XMFLOAT3& bw,
+				const byte bi[])
+				: StaticVertex(p, n, t, uv)
+				, BoneWeights(bw)
+			{
+				BoneIndices[0] = bi[0];
+				BoneIndices[1] = bi[1];
+				BoneIndices[2] = bi[2];
+				BoneIndices[3] = bi[3];
+			}
+
+			DirectX::XMFLOAT3 BoneWeights;
+			byte BoneIndices[4];
+		};
+
+		struct StaticMeshData
+		{
+			std::vector<StaticVertex> Vertices;
 			std::vector<uint32> Indices32;
 
 			std::vector<uint16>& GetIndices16()
@@ -78,47 +102,68 @@ namespace Speck
 			std::vector<uint16> mIndices16;
 		};
 
+		struct SkinnedMeshData
+		{
+			std::vector<SkinnedVertex> Vertices;
+			std::vector<uint32> Indices32;
+
+			std::vector<uint16>& GetIndices16()
+			{
+				if (mIndices16.empty())
+				{
+					mIndices16.resize(Indices32.size());
+					for (size_t i = 0; i < Indices32.size(); ++i)
+						mIndices16[i] = static_cast<uint16>(Indices32[i]);
+				}
+
+				return mIndices16;
+			}
+
+		private:
+			std::vector<uint16> mIndices16;
+		};
+
 		///<summary>
 		/// Creates a box centered at the origin with the given dimensions, where each
 		/// face has m rows and n columns of vertices.
 		///</summary>
-		MeshData CreateBox(float width, float height, float depth, uint32 numSubdivisions);
+		StaticMeshData CreateBox(float width, float height, float depth, uint32 numSubdivisions);
 
 		///<summary>
 		/// Creates a sphere centered at the origin with the given radius.  The
 		/// slices and stacks parameters control the degree of tessellation.
 		///</summary>
-		MeshData CreateSphere(float radius, uint32 sliceCount, uint32 stackCount);
+		StaticMeshData CreateSphere(float radius, uint32 sliceCount, uint32 stackCount);
 
 		///<summary>
 		/// Creates a geosphere centered at the origin with the given radius.  The
 		/// depth controls the level of tessellation.
 		///</summary>
-		MeshData CreateGeosphere(float radius, uint32 numSubdivisions);
+		StaticMeshData CreateGeosphere(float radius, uint32 numSubdivisions);
 
 		///<summary>
 		/// Creates a cylinder parallel to the y-axis, and centered about the origin.  
 		/// The bottom and top radius can vary to form various cone shapes rather than true
 		// cylinders.  The slices and stacks parameters control the degree of tessellation.
 		///</summary>
-		MeshData CreateCylinder(float bottomRadius, float topRadius, float height, uint32 sliceCount, uint32 stackCount);
+		StaticMeshData CreateCylinder(float bottomRadius, float topRadius, float height, uint32 sliceCount, uint32 stackCount);
 
 		///<summary>
 		/// Creates an mxn grid in the xz-plane with m rows and n columns, centered
 		/// at the origin with the specified width and depth.
 		///</summary>
-		MeshData CreateGrid(float width, float depth, uint32 m, uint32 n);
+		StaticMeshData CreateGrid(float width, float depth, uint32 m, uint32 n);
 
 		///<summary>
 		/// Creates a quad aligned with the screen.  This is useful for postprocessing and screen effects.
 		///</summary>
-		MeshData CreateQuad(float x, float y, float w, float h, float depth);
+		StaticMeshData CreateQuad(float x, float y, float w, float h, float depth);
 
 	private:
-		void Subdivide(MeshData& meshData);
-		Vertex MidPoint(const Vertex& v0, const Vertex& v1);
-		void BuildCylinderTopCap(float bottomRadius, float topRadius, float height, uint32 sliceCount, uint32 stackCount, MeshData& meshData);
-		void BuildCylinderBottomCap(float bottomRadius, float topRadius, float height, uint32 sliceCount, uint32 stackCount, MeshData& meshData);
+		void Subdivide(StaticMeshData& meshData);
+		StaticVertex MidPoint(const StaticVertex& v0, const StaticVertex& v1);
+		void BuildCylinderTopCap(float bottomRadius, float topRadius, float height, uint32 sliceCount, uint32 stackCount, StaticMeshData& meshData);
+		void BuildCylinderBottomCap(float bottomRadius, float topRadius, float height, uint32 sliceCount, uint32 stackCount, StaticMeshData& meshData);
 	};
 }
 

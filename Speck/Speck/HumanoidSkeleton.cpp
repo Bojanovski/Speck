@@ -308,9 +308,9 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 	FbxStringList pUVSetNameList;
 	meshPt->GetUVSetNames(pUVSetNameList);
 
-	AppCommands::CreateStaticGeometryCommand cgc;
-	cgc.geometryName = node->GetName();
-	cgc.meshName = meshPt->GetName();
+	AppCommands::CreateSkinnedGeometryCommand csgc;
+	csgc.geometryName = node->GetName();
+	csgc.meshName = meshPt->GetName();
 
 	// for each polygon
 	for (int i = 0; i < polyCount; i++)
@@ -319,8 +319,7 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 		int polyVertCount = meshPt->GetPolygonSize(i);
 		for (int j = 0; j < polyVertCount; j++)
 		{
-
-			AppCommands::StaticMeshVertex vert;
+			AppCommands::SkinnedMeshVertex vert;
 			int cpIndex = meshPt->GetPolygonVertex(i, j);
 
 			controlPoints[cpIndex].mData[3] = 1.0f;
@@ -343,11 +342,11 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 				vert.TexC = XMFLOAT2((float)pUV.mData[0], (float)pUV.mData[1]);
 
 			// Add to command lists
-			size_t size = cgc.vertices.size();
+			size_t size = csgc.vertices.size();
 			size_t i;
 			for (i = 0; i < size; i++)
 			{
-				if (vert == cgc.vertices[i])
+				if (vert == csgc.vertices[i])
 				{
 					break;
 				}
@@ -355,9 +354,9 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 
 			if (i == size)
 			{
-				cgc.vertices.push_back(vert);
+				csgc.vertices.push_back(vert);
 			}
-			cgc.indices.push_back((uint32_t)i);
+			csgc.indices.push_back((uint32_t)i);
 		}
 	}
 
@@ -367,11 +366,11 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 	struct VertexSkinningData
 	{
 		UINT count = 0;
-		UINT bones[10];
+		int bones[10];
 		float weights[10];
 	};
 	vector<VertexSkinningData> verticesSkinningData;
-	verticesSkinningData.resize(cgc.vertices.size());
+	verticesSkinningData.resize(csgc.vertices.size());
 	int nDeformers = meshPt->GetDeformerCount();
 	FbxSkin *pSkin = (FbxSkin*)meshPt->GetDeformer(0, FbxDeformer::eSkin);
 
@@ -385,7 +384,8 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 		// bone ref
 		FbxNode* pBone = cluster->GetLink();
 		string boneName = pBone->GetName();
-		UINT rigidBodyIndex = mNodesAnimData[boneName].index;
+		int rigidBodyIndex = mNodesAnimData[boneName].index;
+		if (rigidBodyIndex == -1) rigidBodyIndex = 0;
 
 		// Get the bind pose
 		FbxAMatrix bindPoseMatrix, transformMatrix;
@@ -412,39 +412,64 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 			int niVertex = pVertexIndices[iBoneVertexIndex];
 			float fWeight = (float)pVertexWeights[iBoneVertexIndex];
 			UINT count = verticesSkinningData[niVertex].count;
-			verticesSkinningData[niVertex].bones[count] = boneIndex;
+			// instead of the bone index, put rigidBodyIndex
+			verticesSkinningData[niVertex].bones[count] = rigidBodyIndex;
 			verticesSkinningData[niVertex].weights[count] = fWeight;
 			++verticesSkinningData[niVertex].count;
-
-			if (rigidBodyIndex == 5)
-			{
-				XMVECTOR pos;
-				XMVECTOR nor;
-				if (verticesSkinningData[niVertex].count > 1) // not first bone
-				{
-					pos = XMLoadFloat3(&cgc.vertices[niVertex].Position);
-					nor = XMLoadFloat3(&cgc.vertices[niVertex].Normal);
-				}
-				else // first bone
-				{
-					pos = XMVectorZero();
-					nor = XMVectorZero();
-				}
-				//XMStoreFloat3(&cgc.vertices[niVertex].Position, pos);
-				//XMStoreFloat3(&cgc.vertices[niVertex].Normal, nor);
-			}
 		}
 	}
 
-	pApp->ExecuteCommand(cgc);
+	// for each vertex migrate the weights
+	for (int i = 0; i < (int)csgc.vertices.size(); ++i)
+	{
+		AppCommands::SkinnedMeshVertex &vert = csgc.vertices[i];
+		vert.BoneWeights = { 0.0f, 0.0f, 0.0f, 0.0f };
+		int newArray[] = { 0, 0, 0, 0 };
+		memcpy(vert.BoneIndices, newArray, sizeof(int) * 4);
+		VertexSkinningData &vertSkinningData = verticesSkinningData[i];
+		float weightSum = 0.0f;
+
+		// populate with weights
+		for (int j = 0; j < MAX_BONES_PER_VERTEX; ++j)
+		{
+			// find the greatest weight
+			float greatestWeight = 0.0f;
+			int greatestWeightIndex = -1;
+			for (int k = 0; k < (int)vertSkinningData.count; k++)
+			{
+				if (greatestWeight < vertSkinningData.weights[k])
+				{
+					greatestWeight = vertSkinningData.weights[k];
+					greatestWeightIndex = vertSkinningData.bones[k];
+					vertSkinningData.weights[k] = 0.0f; // make it 'used'
+				}
+			}
+
+			// add it to the list
+			if (greatestWeightIndex != -1)
+			{
+				vert.BoneWeights[j] = greatestWeight;
+				vert.BoneIndices[j] = greatestWeightIndex;
+				weightSum += greatestWeight;
+			}
+		}
+
+		// fix the sum
+		for (int j = 0; j < MAX_BONES_PER_VERTEX; ++j)
+		{
+			vert.BoneWeights[j] /= weightSum;
+		}
+	}
+
+	pApp->ExecuteCommand(csgc);
 
 	// Add an object
 	WorldCommands::AddRenderItemCommand cmd3;
 	XMStoreFloat4x4(&cmd3.texTransform, XMMatrixScaling(20.0f, 20.0f, 0.4f));
-	cmd3.geometryName = cgc.geometryName;
+	cmd3.geometryName = csgc.geometryName;
 	cmd3.materialName = "pbrMatTest";
-	cmd3.meshName = cgc.meshName;
-	cmd3.type = WorldCommands::RenderItemType::Static;
+	cmd3.meshName = csgc.meshName;
+	cmd3.type = WorldCommands::RenderItemType::SpeckSkeletalBody;
 	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(1.0f, 1.0f, 1.0f);
 	cmd3.staticRenderItem.worldTransform.mT = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	XMStoreFloat4(&cmd3.staticRenderItem.worldTransform.mR, XMQuaternionRotationRollPitchYaw(0.0f, 0.0f, 0.0f));

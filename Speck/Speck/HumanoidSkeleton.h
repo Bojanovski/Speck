@@ -37,7 +37,7 @@ private:
 	std::string mSpeckBodyStructureJSONFile;
 	struct NodeAnimData 
 	{
-		UINT index = -1;
+		int index = -1;
 		UINT numberOfSpecks; 
 		DirectX::XMFLOAT3 centerOfMass; 
 		DirectX::XMFLOAT3 inverseScale; 

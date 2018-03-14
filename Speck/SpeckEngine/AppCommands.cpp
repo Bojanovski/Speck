@@ -255,7 +255,10 @@ int AppCommands::CreateSkinnedGeometryCommand::Execute(void * ptIn, CommandResul
 		mesh.Vertices[i].Normal = vertices[i].Normal;
 		mesh.Vertices[i].TangentU = vertices[i].TangentU;
 		mesh.Vertices[i].TexC = vertices[i].TexC;
-		mesh.Vertices[i].BoneWeights = vertices[i].BoneWeights;
+		mesh.Vertices[i].BoneWeights.x = vertices[i].BoneWeights[0];
+		mesh.Vertices[i].BoneWeights.y = vertices[i].BoneWeights[1];
+		mesh.Vertices[i].BoneWeights.z = vertices[i].BoneWeights[2];
+		mesh.Vertices[i].BoneWeights.w = vertices[i].BoneWeights[3];
 		memcpy(&mesh.Vertices[i].BoneIndices[0], &vertices[i].BoneIndices[0], sizeof(mesh.Vertices[i].BoneIndices));
 	}
 

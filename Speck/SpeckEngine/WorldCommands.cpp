@@ -153,7 +153,7 @@ int AddRenderItemCommand::Execute(void *ptIn, CommandResult *result) const
 		case SpeckSkeletalBody:
 		{
 			SpeckSkeletalBodyRenderItem *pSSBRItem = static_cast<SpeckSkeletalBodyRenderItem*>(rItem.get()); // cast it so that it is easier to manipulate
-			//pSSBRItem->mRenderItemBufferIndex = sWorld->GetRenderItemFreeSpace();
+			pSSBRItem->mRenderItemBufferIndex = sWorld->GetRenderItemFreeSpace();
 			pSSBRItem->mMat = static_cast<PBRMaterial *>(sApp->mMaterials[materialName].get());
 			pSSBRItem->mTexTransform = texTransform;
 			// ...

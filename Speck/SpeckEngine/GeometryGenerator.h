@@ -64,7 +64,7 @@ namespace Speck
 				const DirectX::XMFLOAT3& n,
 				const DirectX::XMFLOAT3& t,
 				const DirectX::XMFLOAT2& uv,
-				const DirectX::XMFLOAT3& bw,
+				const DirectX::XMFLOAT4& bw,
 				const byte bi[])
 				: StaticVertex(p, n, t, uv)
 				, BoneWeights(bw)
@@ -75,8 +75,8 @@ namespace Speck
 				BoneIndices[3] = bi[3];
 			}
 
-			DirectX::XMFLOAT3 BoneWeights;
-			byte BoneIndices[4];
+			DirectX::XMFLOAT4 BoneWeights;
+			int BoneIndices[4];
 		};
 
 		struct StaticMeshData

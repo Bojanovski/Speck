@@ -93,8 +93,8 @@ namespace Speck
 
 		struct SkinnedMeshVertex : public StaticMeshVertex
 		{
-			DirectX::XMFLOAT3 BoneWeights;
-			byte BoneIndices[4];
+			std::array<float, MAX_BONES_PER_VERTEX> BoneWeights;
+			int BoneIndices[MAX_BONES_PER_VERTEX];
 		};
 
 		struct CreateSkinnedGeometryCommand : AppCommand

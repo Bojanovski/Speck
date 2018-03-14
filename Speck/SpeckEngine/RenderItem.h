@@ -99,6 +99,7 @@ namespace Speck
 
 		// Local transform of the render item.
 		Transform mL;
+
 		// Index to the speck rigid body buffer on the GPU.
 		UINT mSpeckRigidBodyIndex = -1;
 
@@ -114,8 +115,14 @@ namespace Speck
 		void UpdateBufferCPU(App *app, FrameResource *currentFrameResource) override;
 		void Render(App *app, FrameResource* frameResource, const DirectX::BoundingFrustum &camFrustum) override;
 
+		// Dirty flag indicating the object data has changed and we need to update the constant buffer.
+		// Because we have an object cbuffer for each FrameResource, we have to apply the
+		// update to each FrameResource.  Thus, when we modify obect data we should set 
+		// NumFramesDirty = NUM_FRAME_RESOURCES so that each frame resource gets the update.
+		int mNumFramesDirty = NUM_FRAME_RESOURCES;
+
 		// Index into GPU constant buffer corresponding to the ObjectCB for this render item.
-		//UINT mObjCBIndex = -1;
+		UINT mRenderItemBufferIndex = -1;
 	};
 }
 

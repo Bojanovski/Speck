@@ -399,31 +399,34 @@ int AddSpecksCommand::Execute(void * ptIn, CommandResult *result) const
 			{
 				// Calculate SDF gradient
 				XMVECTOR gradient1 = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f); // used for calculating the actual gradient
-				XMVECTOR gradient2 = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f); // used as an indicator of the boundary specks
-				XMVECTOR pos = XMLoadFloat3(&newSpecks[i].position);
-				float maxDist = sWorld->GetSpecksHandler()->GetSpeckRadius() * 2.0f * 1.2f;
-				float maxDistSq = maxDist*maxDist;
-				for (UINT j = 0; j < (UINT)newSpecks.size(); ++j)
+				if (rigidBodyJoint.calculateSDFGradient)
 				{
-					if (i == j) continue;
-					XMVECTOR neighbourPos = XMLoadFloat3(&newSpecks[j].position);
-					XMVECTOR r = pos - neighbourPos;
-					float lenSq = XMVectorGetX(XMVector3LengthSq(r));
-					float lenPow = powf(lenSq, 10.0f);
-					float invLenPow = 1.0f / lenPow;
-
-					gradient1 += r * invLenPow;
-					if (lenSq < maxDistSq)
+					XMVECTOR gradient2 = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f); // used as an indicator of the boundary specks
+					XMVECTOR pos = XMLoadFloat3(&newSpecks[i].position);
+					float maxDist = sWorld->GetSpecksHandler()->GetSpeckRadius() * 2.0f * 1.2f;
+					float maxDistSq = maxDist*maxDist;
+					for (UINT j = 0; j < (UINT)newSpecks.size(); ++j)
 					{
-						gradient2 += r;
+						if (i == j) continue;
+						XMVECTOR neighbourPos = XMLoadFloat3(&newSpecks[j].position);
+						XMVECTOR r = pos - neighbourPos;
+						float lenSq = XMVectorGetX(XMVector3LengthSq(r));
+						float lenPow = powf(lenSq, 10.0f);
+						float invLenPow = 1.0f / lenPow;
+
+						gradient1 += r * invLenPow;
+						if (lenSq < maxDistSq)
+						{
+							gradient2 += r;
+						}
 					}
-				}
-				gradient1 = XMVector3Normalize(gradient1);
-				float grad2Len = XMVectorGetX(XMVector3LengthEst(gradient2));
-				float epsilon = 0.001f;
-				if (grad2Len > epsilon)
-				{
-					gradient1 *= 2.0f; // indication that this is a boundary speck
+					gradient1 = XMVector3Normalize(gradient1);
+					float grad2Len = XMVectorGetX(XMVector3LengthEst(gradient2));
+					float epsilon = 0.001f;
+					if (grad2Len > epsilon)
+					{
+						gradient1 *= 2.0f; // indication that this is a boundary speck
+					}
 				}
 				XMFLOAT3 gradientF;
 				XMStoreFloat3(&gradientF, gradient1);

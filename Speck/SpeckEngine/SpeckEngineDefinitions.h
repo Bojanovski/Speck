@@ -19,6 +19,7 @@
 #include <array>
 #include <map>				// Slower, less memory.
 #include <unordered_map>	// Faster, more memory.
+#include <set>
 #include <cstdint>
 #include <fstream>
 #include <sstream>
@@ -46,7 +47,6 @@
 #define MAX_LIGHTS 16						// maximal number of lights
 #define NUM_FRAME_RESOURCES 3				// number of frames CPU can work on in advance before getting stopped by the belated GPU
 #define SWAP_CHAIN_BUFFER_COUNT  2
-#define MAX_BONES_PER_VERTEX 4				// maximal number of bones that can transform a vertex in skinning vertex shaders
 
 //
 // Macros

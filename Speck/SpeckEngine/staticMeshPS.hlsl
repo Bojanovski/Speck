@@ -1,5 +1,4 @@
 
-// Include structures and functions for lighting.
 #include "shaderRoot.hlsl"
 
 struct VertexOut

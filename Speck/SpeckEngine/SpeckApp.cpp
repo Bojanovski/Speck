@@ -571,7 +571,7 @@ void SpeckApp::BuildSpeckGeometry()
 {
 	auto &dxCore = GetEngineCore().GetDirectXCore();
 	GeometryGenerator gg;
-	GeometryGenerator::StaticMeshData md = gg.CreateGeosphere(SpecksHandler::GetSpeckRadius(), 1);
+	GeometryGenerator::StaticMeshData md = gg.CreateGeosphere(SpecksHandler::GetSpeckRadius(), 3);
 
 	BoundingBox bounds;
 	XMStoreFloat3(&bounds.Center, XMVectorZero());
@@ -844,13 +844,7 @@ void SpeckApp::BuildPSOs()
 	// PSO for static mesh objects.
 	//
 	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	inputLayout =
-	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-	};
+	GeometryGenerator::StaticVertex::GetInputLayout(&inputLayout);
 	psoDesc.InputLayout = { inputLayout.data(), (UINT)inputLayout.size() };
 	psoDesc.pRootSignature = mRootSignature.Get();
 	psoDesc.VS =
@@ -880,15 +874,7 @@ void SpeckApp::BuildPSOs()
 	// PSO for skinned mesh objects (skeletal body).
 	//
 	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	inputLayout =
-	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "WEIGHTS", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 44, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "BONEINDICES", 0, DXGI_FORMAT_R32G32B32A32_SINT, 0, 60, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-	};
+	GeometryGenerator::SkinnedVertex::GetInputLayout(&inputLayout);
 	psoDesc.InputLayout = { inputLayout.data(), (UINT)inputLayout.size() };
 	psoDesc.pRootSignature = mRootSignature.Get();
 	psoDesc.VS =

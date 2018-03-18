@@ -54,29 +54,34 @@ namespace Speck
 			DirectX::XMFLOAT3 Normal;
 			DirectX::XMFLOAT3 TangentU;
 			DirectX::XMFLOAT2 TexC;
+			
+			static void GetInputLayout(std::vector<D3D12_INPUT_ELEMENT_DESC> *inputLayout);
 		};
 
-		struct SkinnedVertex : public StaticVertex
+		struct SkinnedVertex
 		{
 			SkinnedVertex() {}
 			SkinnedVertex(
-				const DirectX::XMFLOAT3& p,
-				const DirectX::XMFLOAT3& n,
-				const DirectX::XMFLOAT3& t,
+				const DirectX::XMFLOAT4 p[MAX_BONES_PER_VERTEX],
+				const DirectX::XMFLOAT3 n[MAX_BONES_PER_VERTEX],
+				const DirectX::XMFLOAT3 t[MAX_BONES_PER_VERTEX],
 				const DirectX::XMFLOAT2& uv,
-				const DirectX::XMFLOAT4& bw,
 				const byte bi[])
-				: StaticVertex(p, n, t, uv)
-				, BoneWeights(bw)
+				: TexC(uv)
 			{
-				BoneIndices[0] = bi[0];
-				BoneIndices[1] = bi[1];
-				BoneIndices[2] = bi[2];
-				BoneIndices[3] = bi[3];
+				memcpy(Position, p, sizeof(Position));
+				memcpy(Normal, n, sizeof(Normal));
+				memcpy(TangentU, t, sizeof(TangentU));
+				memcpy(BoneIndices, bi, sizeof(BoneIndices));
 			}
 
-			DirectX::XMFLOAT4 BoneWeights;
-			int BoneIndices[4];
+			DirectX::XMFLOAT4 Position[MAX_BONES_PER_VERTEX];
+			DirectX::XMFLOAT3 Normal[MAX_BONES_PER_VERTEX];
+			DirectX::XMFLOAT3 TangentU[MAX_BONES_PER_VERTEX];
+			DirectX::XMFLOAT2 TexC;
+			int BoneIndices[MAX_BONES_PER_VERTEX];
+			
+			static void GetInputLayout(std::vector<D3D12_INPUT_ELEMENT_DESC> *inputLayout);
 		};
 
 		struct StaticMeshData

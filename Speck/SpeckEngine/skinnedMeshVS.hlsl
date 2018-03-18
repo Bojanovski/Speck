@@ -1,15 +1,13 @@
 
-// Include structures and functions for lighting.
 #include "shaderRoot.hlsl"
 
 struct VertexIn
 {
-	float3 PosL			: POSITION;
-	float3 NormalL		: NORMAL;
-	float3 TangentU		: TANGENT;
-	float2 TexC			: TEXCOORD;
-	float4 BoneWeights	: WEIGHTS;
-	int4 BoneIndices	: BONEINDICES;
+	float4 PosL[MAX_BONES_PER_VERTEX]			: POSITION;
+	float3 NormalL[MAX_BONES_PER_VERTEX]		: NORMAL;
+	float3 TangentU[MAX_BONES_PER_VERTEX]		: TANGENT;
+	float2 TexC									: TEXCOORD;
+	int4 BoneIndices							: BONEINDICES;
 };
 
 struct VertexOut
@@ -79,37 +77,25 @@ VertexOut main(VertexIn vin)
 	}
 
 	// Transform to world space.
-	float4 posW1 = mul(float4(vin.PosL, 1.0f), world1);
-	float4 posW2 = mul(float4(vin.PosL, 1.0f), world2);
-	float4 posW3 = mul(float4(vin.PosL, 1.0f), world3);
-	float4 posW4 = mul(float4(vin.PosL, 1.0f), world4);
-	float4 posW =
-		vin.BoneWeights.x * posW1 +
-		vin.BoneWeights.y * posW2 +
-		vin.BoneWeights.z * posW3 +
-		vin.BoneWeights.w * posW4;
+	float4 posW1 = mul(vin.PosL[0], world1);
+	float4 posW2 = mul(vin.PosL[1], world2);
+	float4 posW3 = mul(vin.PosL[2], world3);
+	float4 posW4 = mul(vin.PosL[3], world4);
+	float4 posW = posW1 + posW2 + posW3 + posW4;
 	vout.PosW = posW.xyz;
 
 	// Use inverse transpose world matrix for normal and tangent.
-	float3 normalW1 = mul(vin.NormalL, invTransposeWorld1);
-	float3 normalW2 = mul(vin.NormalL, invTransposeWorld2);
-	float3 normalW3 = mul(vin.NormalL, invTransposeWorld3);
-	float3 normalW4 = mul(vin.NormalL, invTransposeWorld4);
-	vout.NormalW =
-		vin.BoneWeights.x * normalW1 +
-		vin.BoneWeights.y * normalW2 +
-		vin.BoneWeights.z * normalW3 +
-		vin.BoneWeights.w * normalW4;
+	float3 normalW1 = mul(vin.NormalL[0], invTransposeWorld1);
+	float3 normalW2 = mul(vin.NormalL[1], invTransposeWorld2);
+	float3 normalW3 = mul(vin.NormalL[2], invTransposeWorld3);
+	float3 normalW4 = mul(vin.NormalL[3], invTransposeWorld4);
+	vout.NormalW = normalW1 + normalW2 + normalW3 + normalW4;
 
-	float3 tangentW1 = mul(vin.TangentU, invTransposeWorld1);
-	float3 tangentW2 = mul(vin.TangentU, invTransposeWorld2);
-	float3 tangentW3 = mul(vin.TangentU, invTransposeWorld3);
-	float3 tangentW4 = mul(vin.TangentU, invTransposeWorld4);
-	vout.TangentW =
-		vin.BoneWeights.x * tangentW1 +
-		vin.BoneWeights.y * tangentW2 +
-		vin.BoneWeights.z * tangentW3 +
-		vin.BoneWeights.w * tangentW4;
+	float3 tangentW1 = mul(vin.TangentU[0], invTransposeWorld1);
+	float3 tangentW2 = mul(vin.TangentU[1], invTransposeWorld2);
+	float3 tangentW3 = mul(vin.TangentU[2], invTransposeWorld3);
+	float3 tangentW4 = mul(vin.TangentU[3], invTransposeWorld4);
+	vout.TangentW = tangentW1 + tangentW2 + tangentW3 + tangentW4;
 
 	// Transform to homogeneous clip space.
 	vout.PosH = mul(posW, gViewProj);

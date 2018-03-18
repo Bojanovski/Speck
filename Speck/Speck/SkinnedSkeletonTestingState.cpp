@@ -97,7 +97,7 @@ void SkinnedSkeletonTestingState::Initialize()
 	// Generate the world
 	//
 	StaticPrimitivesGenerator staticPrimGen(GetWorld());
-	staticPrimGen.GenerateBox({ 70.0f, 5.0f, 70.0f }, "pbrMatTest", { 0.0f, -10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	staticPrimGen.GenerateBox({ 70.0f, 5.0f, 70.0f }, "pbrMatTest", { 0.0f, -5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }); // ground
 
 	// Add an env map
 	WorldCommands::AddEnviromentMapCommand cmd4;
@@ -114,10 +114,10 @@ void SkinnedSkeletonTestingState::Initialize()
 	GetWorld().ExecuteCommand(efc);
 
 	mHumanoidSkeleton = make_unique<HumanoidSkeleton>(GetWorld());
-	mHumanoidSkeleton->Initialize(L"Data/Animations/knight_idle.fbx", L"Data/Animations/knight_idle.json", &GetApp());
+	mHumanoidSkeleton->Initialize(L"Data/Animations/knight_idle.fbx", L"Data/Animations/knight.json", &GetApp(), true);
 
 	WorldCommands::SetTimeMultiplierCommand stmc;
-	stmc.timeMultiplierConstant = 0.999f;
+	stmc.timeMultiplierConstant = 1.0f;
 	GetWorld().ExecuteCommand(stmc);
 
 	// position camera
@@ -145,11 +145,11 @@ void SkinnedSkeletonTestingState::Update(float dt)
 	t += dt;
 
 
-	if (t < 500.0f && t > 0.0f)
+	if (t < 20.0f && t > 0.0f)
 	{
-		mHumanoidSkeleton->UpdateAnimation(t*0.7f);
+		mHumanoidSkeleton->UpdateAnimation(t*1.0f);
 	}
-	else if (t > 500.0f)
+	else if (t > 20.0f)
 	{
 		mHumanoidSkeleton->StartSimulation();
 	}

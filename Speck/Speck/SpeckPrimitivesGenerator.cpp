@@ -22,15 +22,15 @@ SpeckPrimitivesGenerator::~SpeckPrimitivesGenerator()
 {
 }
 
-int SpeckPrimitivesGenerator::GenerateBox(int nx, int ny, int nz, const char *materialName, const XMFLOAT3 & position, const XMFLOAT3 & rotation)
+int SpeckPrimitivesGenerator::GenerateBox(int nx, int ny, int nz, const char *materialName, bool useSkin, const XMFLOAT3 & position, const XMFLOAT3 & rotation)
 {
 	XMMATRIX mat = XMMatrixRotationRollPitchYaw(rotation.x, rotation.y, rotation.z) * XMMatrixTranslation(position.x, position.y, position.z);
 	XMFLOAT4X4 transform;
 	XMStoreFloat4x4(&transform, mat);
-	return GenerateBox(nx, ny, nz, materialName, transform);
+	return GenerateBox(nx, ny, nz, materialName, useSkin, transform);
 }
 
-int SpeckPrimitivesGenerator::GenerateBox(int nx, int ny, int nz, const char * materialName, const XMFLOAT4X4 &transform)
+int SpeckPrimitivesGenerator::GenerateBox(int nx, int ny, int nz, const char * materialName, bool useSkin, const XMFLOAT4X4 &transform)
 {
 	XMMATRIX mat = XMLoadFloat4x4(&transform);
 	float dx, dy, dz, width, height, depth, x, y, z;
@@ -68,17 +68,20 @@ int SpeckPrimitivesGenerator::GenerateBox(int nx, int ny, int nz, const char * m
 	}
 	GetWorld().ExecuteCommand(asrbc, &commandResult);
 	int specksAdded = (int)asrbc.newSpecks.size();
-
+	
 	// add the mesh skin
-	WorldCommands::AddRenderItemCommand aric;
-	aric.geometryName = "shapeGeo";
-	aric.materialName = materialName;
-	aric.meshName = "box";
-	aric.type = WorldCommands::RenderItemType::SpeckRigidBody;
-	aric.speckRigidBodyRenderItem.rigidBodyIndex = commandResult.rigidBodyIndex;
-	aric.speckRigidBodyRenderItem.localTransform.MakeIdentity();
-	aric.staticRenderItem.worldTransform.mS = XMFLOAT3(width + 2.0f * mSpeckRadius, height + 2.0f * mSpeckRadius, depth + 2.0f * mSpeckRadius);
-	GetWorld().ExecuteCommand(aric);
+	if (useSkin) 
+	{
+		WorldCommands::AddRenderItemCommand aric;
+		aric.geometryName = "shapeGeo";
+		aric.materialName = materialName;
+		aric.meshName = "box";
+		aric.type = WorldCommands::RenderItemType::SpeckRigidBody;
+		aric.speckRigidBodyRenderItem.rigidBodyIndex = commandResult.rigidBodyIndex;
+		aric.speckRigidBodyRenderItem.localTransform.MakeIdentity();
+		aric.staticRenderItem.worldTransform.mS = XMFLOAT3(width + 2.0f * mSpeckRadius, height + 2.0f * mSpeckRadius, depth + 2.0f * mSpeckRadius);
+		GetWorld().ExecuteCommand(aric);
+	}
 
 	return specksAdded;
 }
@@ -329,6 +332,7 @@ int SpeckPrimitivesGenerator::GeneratreConstrainedRigidBodyPair(ConstrainedRigid
 	{
 		asrbcJoint.rigidBodyJoint.rigidBodyIndex[0] = rb1;
 		asrbcJoint.rigidBodyJoint.rigidBodyIndex[1] = rb2;
+		asrbcJoint.rigidBodyJoint.calculateSDFGradient = (asrbcJoint.newSpecks.size() > 2);
 		GetWorld().ExecuteCommand(asrbcJoint);
 		specksAdded += (int)asrbcJoint.newSpecks.size();
 	}

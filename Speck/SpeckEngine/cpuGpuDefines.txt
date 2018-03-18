@@ -58,4 +58,7 @@
 #define RIGID_BODY_MOVEMENT_MODE_GPU 1
 #define QR_ALGORITHM_ITERATION_COUNT 100
 
+// Mesh skinning:
+#define MAX_BONES_PER_VERTEX 4				// maximal number of bones that can transform a vertex in skinning vertex shaders
+
 #endif

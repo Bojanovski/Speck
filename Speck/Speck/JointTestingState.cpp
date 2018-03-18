@@ -108,9 +108,9 @@ void JointTestingState::Initialize()
 		num += speckPrimGen.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::StiffJoint, { 20.0f, 20.0f + i * 5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 	}
 
-	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", { 0.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
-	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", { 10.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
-	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", { -10.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", false, { 0.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", false, { 10.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", false, { -10.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 
 	// add gravity
 	WorldCommands::AddExternalForceCommand efc;

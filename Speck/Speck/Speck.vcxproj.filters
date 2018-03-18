@@ -40,7 +40,7 @@
       <Filter>Source Files\GameStates</Filter>
     </ClCompile>
     <ClCompile Include="SkinnedSkeletonTestingState.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\GameStates</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -4,6 +4,7 @@
 
 #include "GeometryGenerator.h"
 
+using namespace std;
 using namespace DirectX;
 using namespace Speck;
 
@@ -679,4 +680,49 @@ BoundingBox GeometryGenerator::StaticMeshData::CalculateBounds()
 	XMStoreFloat3(&bounds.Center, 0.5f*(vMin + vMax));
 	XMStoreFloat3(&bounds.Extents, 0.5f*(vMax - vMin));
 	return bounds;
+}
+
+void GeometryGenerator::StaticVertex::GetInputLayout(vector<D3D12_INPUT_ELEMENT_DESC>* inputLayout)
+{
+	UINT alignedByteOffset = 0;
+	*inputLayout =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, alignedByteOffset += 0,					D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, alignedByteOffset += sizeof(XMFLOAT3),		D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, alignedByteOffset += sizeof(XMFLOAT3),		D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, alignedByteOffset += sizeof(XMFLOAT3),		D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+	};
+}
+
+void GeometryGenerator::SkinnedVertex::GetInputLayout(vector<D3D12_INPUT_ELEMENT_DESC>* inputLayout)
+{
+	UINT alignedByteOffset = 0;
+	inputLayout->clear();
+
+	// Position
+	for (UINT i = 0; i < MAX_BONES_PER_VERTEX; i++)
+	{
+		inputLayout->push_back({ "POSITION", i, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, alignedByteOffset, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 });
+		alignedByteOffset += sizeof(XMFLOAT4);
+	}
+
+	// Normal
+	for (UINT i = 0; i < MAX_BONES_PER_VERTEX; i++)
+	{
+		inputLayout->push_back({ "NORMAL", i, DXGI_FORMAT_R32G32B32_FLOAT, 0, alignedByteOffset, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 });
+		alignedByteOffset += sizeof(XMFLOAT3);
+	}
+
+	// Tangent
+	for (UINT i = 0; i < MAX_BONES_PER_VERTEX; i++)
+	{
+		inputLayout->push_back({ "TANGENT", i, DXGI_FORMAT_R32G32B32_FLOAT, 0, alignedByteOffset, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 });
+		alignedByteOffset += sizeof(XMFLOAT3);
+	}
+
+	inputLayout->push_back({ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, alignedByteOffset, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 });
+	alignedByteOffset += sizeof(XMFLOAT2);
+	inputLayout->push_back({ "BONEINDICES", 0, DXGI_FORMAT_R32G32B32A32_SINT, 0, alignedByteOffset,	D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 });
+	alignedByteOffset += sizeof(XMFLOAT4);
+
 }

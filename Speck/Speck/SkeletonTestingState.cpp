@@ -97,19 +97,19 @@ void SkeletonTestingState::Initialize()
 	// Generate the world
 	//
 	StaticPrimitivesGenerator staticPrimGen(GetWorld());
-	staticPrimGen.GenerateBox({ 70.0f, 5.0f, 70.0f }, "pbrMatTest", { 0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
-	staticPrimGen.GenerateBox({ 5.0f, 200.0f, 60.0f }, "pbrMatTest", { 20.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	staticPrimGen.GenerateBox({ 70.0f, 5.0f, 70.0f }, "pbrMatTest", { 0.0f, -4.2f, 0.0f }, { 0.0f, 0.0f, 0.0f }); // ground
+	staticPrimGen.GenerateBox({ 5.0f, 200.0f, 60.0f }, "pbrMatTest", { 30.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 	staticPrimGen.GenerateBox({ 60.0f, 200.0f, 5.0f }, "pbrMatTest", { 0.0f, -0.0f, 15.0f }, { 0.0f, 0.0f, 0.0f });
-	staticPrimGen.GenerateBox({ 5.0f, 200.0f, 60.0f }, "pbrMatTest", { -20.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	staticPrimGen.GenerateBox({ 5.0f, 200.0f, 60.0f }, "pbrMatTest", { -30.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 	staticPrimGen.GenerateBox({ 60.0f, 100.0f, 50.0f }, "pbrMatTest", { 0.0f, 0.0f, -40.0f }, { 0.0f, 0.0f, 0.0f });
 
 	WorldCommands::AddSpecksCommand asrbc;
 	asrbc.speckType = WorldCommands::SpeckType::Fluid;
 	asrbc.frictionCoefficient = 0.001f;
-	asrbc.fluid.cohesionCoefficient = 0.03f;
+	asrbc.fluid.cohesionCoefficient = 0.5f;
 	asrbc.fluid.viscosityCoefficient = 0.1f;
 	asrbc.speckMass = 0.4f;
-	asrbc.newSpecks.resize(32000);
+	asrbc.newSpecks.resize(16000);
 	int n = (int)pow(asrbc.newSpecks.size(), 1.0f / 3.0f);
 	int nPow3 = n*n*n;
 	float width = 15.0f;
@@ -137,8 +137,9 @@ void SkeletonTestingState::Initialize()
 
 	// Add some rigd bodies
 	SpeckPrimitivesGenerator speckPrimGen(GetWorld());
-	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest2", { 8.0f, 6.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
-	speckPrimGen.GenerateBox(6, 2, 2, "pbrMatTest2", { 8.0f, 9.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	speckPrimGen.SetSpeckMass(2.0f);
+	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest2", false, { 8.0f, 6.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	speckPrimGen.GenerateBox(6, 2, 2, "pbrMatTest2", false, { 8.0f, 9.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 
 	// Add an env map
 	WorldCommands::AddEnviromentMapCommand cmd4;
@@ -155,7 +156,7 @@ void SkeletonTestingState::Initialize()
 	GetWorld().ExecuteCommand(efc);
 
 	mHumanoidSkeleton = make_unique<HumanoidSkeleton>(GetWorld());
-	mHumanoidSkeleton->Initialize(L"Data/Animations/house_dancing.fbx", L"Data/Animations/house_dancing.json", &GetApp());
+	mHumanoidSkeleton->Initialize(L"Data/Animations/knight_dancing.fbx", L"Data/Animations/knight.json", &GetApp(), false);
 
 	WorldCommands::SetTimeMultiplierCommand stmc;
 	stmc.timeMultiplierConstant = 1.0f;

@@ -59,6 +59,28 @@ void Conv(DirectX::XMFLOAT4X4 *out, const fbxsdk::FbxDouble4x4 &in)
 	}
 }
 
+bool operator==(const AppCommands::StaticMeshVertex &left, const AppCommands::StaticMeshVertex &right)
+{
+	if (left.Normal == right.Normal &&
+		left.Position == right.Position &&
+		left.TangentU == right.TangentU &&
+		left.TexC == right.TexC)
+		return true;
+	else
+		return false;
+}
+
+bool operator==(const AppCommands::SkinnedMeshVertex &left, const AppCommands::SkinnedMeshVertex &right)
+{
+	if (left.Normal[0] == right.Normal[0] &&
+		left.Position[0] == right.Position[0] &&
+		left.TangentU[0] == right.TangentU[0] &&
+		left.TexC == right.TexC)
+		return true;
+	else
+		return false;
+}
+
 void HumanoidSkeleton::ProcessBone(FbxNode *node, WorldCommands::AddSpecksCommand *outCommand, const string &boneName)
 {
 	// FBX
@@ -102,6 +124,7 @@ void HumanoidSkeleton::ProcessBone(FbxNode *node, WorldCommands::AddSpecksComman
 	{
 		GetWorld().ExecuteCommand(*outCommand, &commandResult);
 		mNodesAnimData[boneName].index = commandResult.rigidBodyIndex;
+		mNodesParents[boneName] = boneName;
 	}
 	mNodesAnimData[boneName].numberOfSpecks = (UINT)outCommand->newSpecks.size();
 	XMStoreFloat3(&mNodesAnimData[boneName].centerOfMass, com);
@@ -110,7 +133,7 @@ void HumanoidSkeleton::ProcessBone(FbxNode *node, WorldCommands::AddSpecksComman
 	XMStoreFloat4x4(&mNodesAnimData[boneName].bindPoseWorldTransform, worldWithoutScale);
 }
 
-void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp)
+void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp, bool useSkinning)
 {
 	// Parse the JSON file
 	json j;
@@ -124,6 +147,10 @@ void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp)
 		LOG(TEXT("Exception caught while parsing a json file: ") + StrToWStr(mName) + TEXT(" ."), WARNING);
 		LOG(StrToWStr(ex.what()), ERROR);
 	}
+
+	// some constants
+	const float speckMass = 2.0f;
+	const float frictionCoefficient = 0.8f;
 
 	// Create a body made out of specks
 	int numStacks = mScene->GetSrcObjectCount<FbxAnimStack>();
@@ -145,10 +172,11 @@ void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp)
 		string boneName = node->GetName();
 		WorldCommands::AddSpecksCommand command;
 		command.speckType = WorldCommands::SpeckType::RigidBody;
-		command.speckMass = 1.0f;
-		command.frictionCoefficient = 0.2f;
+		command.speckMass = speckMass;
+		command.frictionCoefficient = frictionCoefficient;
 
 		// find the name in the json
+		bool boneFound = false;
 		json::iterator it = j.find("bones");
 		if (it != j.end())
 		{
@@ -159,7 +187,6 @@ void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp)
 				json jsonBone = listIt.value();
 				json jsonBoneNamesList = jsonBone.at("bones").get<json>();
 				string jsonBoneName = "";
-				bool boneFound = false;
 				for (json::iterator boneNamesListIt = jsonBoneNamesList.begin(); boneNamesListIt != jsonBoneNamesList.end(); ++boneNamesListIt)
 				{
 					jsonBoneName = boneNamesListIt.value().get<string>();
@@ -190,6 +217,16 @@ void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp)
 			}
 		}
 
+		if (!boneFound)
+		{
+			FbxNode *parentNode = node->GetParent();
+			if (parentNode)
+			{
+				string parentNodeName = parentNode->GetName(); // parent has already been processed
+				mNodesParents[boneName] = mNodesParents[parentNodeName];
+			}
+		}
+
 		int numChildren = node->GetChildCount();
 		for (int i = 0; i < numChildren; i++)
 		{
@@ -206,9 +243,12 @@ void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp)
 	// connect the bones
 	WorldCommands::AddSpecksCommand commandForJoint;
 	commandForJoint.speckType = WorldCommands::SpeckType::RigidBodyJoint;
-	commandForJoint.speckMass = 1.0f;
-	commandForJoint.frictionCoefficient = 0.2f;
+	commandForJoint.speckMass = speckMass;
+	commandForJoint.frictionCoefficient = frictionCoefficient;
 	json::iterator it = j.find("joints");
+	
+	//return;
+	
 	if (it != j.end())
 	{
 		json list = it.value();
@@ -272,38 +312,34 @@ void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp)
 					XMStoreFloat3(&parentIte->second.centerOfMass, parentCOM);
 					XMStoreFloat3(&childIte->second.centerOfMass, childCOM);
 
+					// should use SDF gradient?
+					commandForJoint.rigidBodyJoint.calculateSDFGradient = (commandForJoint.newSpecks.size() > 2);
+
 					GetWorld().ExecuteCommand(commandForJoint);
 				}
 			}
 		}
 	}
 
-	if (skinNode)
+	if (skinNode && useSkinning)
 	{
 		ProcessRenderSkin(skinNode, pApp);
 	}
 }
 
-bool operator==(const AppCommands::StaticMeshVertex &left, const AppCommands::StaticMeshVertex &right)
+template <int size> struct VertexSkinningData
 {
-	if (left.Normal == right.Normal &&
-		left.Position == right.Position &&
-		left.TangentU == right.TangentU &&
-		left.TexC == right.TexC)
-		return true;
-	else
-		return false;
-}
+	static const int maxSize = size;
+	UINT count = 0;
+	int bones[size];
+	float weights[size];
+};
 
 void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 {
 	FbxMesh *meshPt = node->GetMesh();
 	bool triMesh = meshPt->IsTriangleMesh();
 	FbxAMatrix world = node->EvaluateGlobalTransform();
-
-	int polyCount = meshPt->mPolygons.GetCount();
-	FbxVector4* controlPoints = meshPt->GetControlPoints();
-	int controlPointCount = meshPt->GetControlPointsCount();
 
 	FbxStringList pUVSetNameList;
 	meshPt->GetUVSetNames(pUVSetNameList);
@@ -313,6 +349,11 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 	csgc.meshName = meshPt->GetName();
 
 	// for each polygon
+	FbxVector4* controlPoints = meshPt->GetControlPoints();
+	int polyCount = meshPt->mPolygons.GetCount();
+	int *controlPointVertices = meshPt->GetPolygonVertices();
+	int controlPointCount = meshPt->GetControlPointsCount();
+	vector<set<int>> controlPointIndexToLocalBufferVertexIndexSet(controlPointCount);
 	for (int i = 0; i < polyCount; i++)
 	{
 		// for each triangle
@@ -324,12 +365,11 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 
 			controlPoints[cpIndex].mData[3] = 1.0f;
 			FbxVector4 pos = world.MultT(controlPoints[cpIndex]);
-
-			vert.Position = XMFLOAT3((float)pos.mData[0], (float)pos.mData[1], (float)pos.mData[2]);
+			vert.Position[0] = XMFLOAT4((float)pos.mData[0], (float)pos.mData[1], (float)pos.mData[2], 1.0f);
 
 			FbxVector4 pNormal;
 			meshPt->GetPolygonVertexNormal(i, j, pNormal);
-			vert.Normal = XMFLOAT3((float)pNormal.mData[0], (float)pNormal.mData[1], (float)pNormal.mData[2]);
+			vert.Normal[0] = XMFLOAT3((float)pNormal.mData[0], (float)pNormal.mData[1], (float)pNormal.mData[2]);
 
 			FbxVector2 pUV;
 			bool hasUV = false, retVal = false;
@@ -341,35 +381,31 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 			if (retVal)
 				vert.TexC = XMFLOAT2((float)pUV.mData[0], (float)pUV.mData[1]);
 
-			// Add to command lists
-			size_t size = csgc.vertices.size();
-			size_t i;
-			for (i = 0; i < size; i++)
+			// Is it already in
+			int size = (int)csgc.vertices.size();
+			int vertI;
+			for (vertI = 0; vertI < size; vertI++)
 			{
-				if (vert == csgc.vertices[i])
+				if (vert == csgc.vertices[vertI])
 				{
 					break;
 				}
 			}
 
-			if (i == size)
+			// Add to command lists
+			if (vertI == size)
 			{
 				csgc.vertices.push_back(vert);
+				auto &vertexIndexSet = controlPointIndexToLocalBufferVertexIndexSet[cpIndex];
+				vertexIndexSet.insert(vertI);
 			}
-			csgc.indices.push_back((uint32_t)i);
+			csgc.indices.push_back((uint32_t)vertI);
 		}
 	}
 
-	//
-	// Skinning
-	//
-	struct VertexSkinningData
-	{
-		UINT count = 0;
-		int bones[10];
-		float weights[10];
-	};
-	vector<VertexSkinningData> verticesSkinningData;
+	// get skinning data
+	map<UINT, XMMATRIX> rigidBodyInverseBindPoseMap;
+	vector<VertexSkinningData<10>> verticesSkinningData;
 	verticesSkinningData.resize(csgc.vertices.size());
 	int nDeformers = meshPt->GetDeformerCount();
 	FbxSkin *pSkin = (FbxSkin*)meshPt->GetDeformer(0, FbxDeformer::eSkin);
@@ -384,49 +420,64 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 		// bone ref
 		FbxNode* pBone = cluster->GetLink();
 		string boneName = pBone->GetName();
-		int rigidBodyIndex = mNodesAnimData[boneName].index;
-		if (rigidBodyIndex == -1) rigidBodyIndex = 0;
+		NodeAnimData *nodeAnimData = &mNodesAnimData[boneName];
+		if (nodeAnimData->index == -1) nodeAnimData = &mNodesAnimData[mNodesParents[boneName]];
 
-		// Get the bind pose
+		// get the bind pose
 		FbxAMatrix bindPoseMatrix, transformMatrix;
 		cluster->GetTransformMatrix(transformMatrix);
 		cluster->GetTransformLinkMatrix(bindPoseMatrix);
 		XMFLOAT4X4 bindPoseMatrixF;
 		Conv(&bindPoseMatrixF, bindPoseMatrix);
 		XMMATRIX bindPose = XMLoadFloat4x4(&bindPoseMatrixF);
+		
+		// get the inverse local transform
+		XMVECTOR inverseLocalTranslation = XMLoadFloat3(&nodeAnimData->centerOfMass);
+		XMVECTOR inverseLocalRotation = XMLoadFloat4(&nodeAnimData->inverseRotation);
+		XMVECTOR inverseLocalScale = XMLoadFloat3(&nodeAnimData->inverseScale);
+		XMMATRIX inverseLocalTransform = XMMatrixTranslationFromVector(inverseLocalTranslation) * XMMatrixRotationQuaternion(inverseLocalRotation) * XMMatrixScalingFromVector(inverseLocalScale);
+		
+		// get the inverse 'offset matrix' without scale
+		XMMATRIX w = XMMatrixMultiply(inverseLocalTransform, bindPose);
+		XMVECTOR s, r, t;
+		XMMatrixDecompose(&s, &r, &t, w);
+		XMMATRIX wWithoutScale = XMMatrixRotationQuaternion(r) * XMMatrixTranslationFromVector(t);
 		XMVECTOR det;
-		XMMATRIX invBindPose = XMMatrixInverse(&det, bindPose);
+		XMMATRIX invW = XMMatrixInverse(&det, wWithoutScale);
+		rigidBodyInverseBindPoseMap[nodeAnimData->index] = invW;
 
-		// decomposed transform components
-		FbxVector4 vS = bindPoseMatrix.GetS();
-		FbxVector4 vR = bindPoseMatrix.GetR();
-		FbxVector4 vT = bindPoseMatrix.GetT();
-
+		// Iterate through all the control points that are affected by the bone
 		int *pVertexIndices = cluster->GetControlPointIndices();
 		double *pVertexWeights = cluster->GetControlPointWeights();
-
-		// Iterate through all the vertices, which are affected by the bone
 		int ncVertexIndices = cluster->GetControlPointIndicesCount();
 		for (int iBoneVertexIndex = 0; iBoneVertexIndex < ncVertexIndices; iBoneVertexIndex++)
 		{
-			int niVertex = pVertexIndices[iBoneVertexIndex];
+			int cpIndex = pVertexIndices[iBoneVertexIndex];
 			float fWeight = (float)pVertexWeights[iBoneVertexIndex];
-			UINT count = verticesSkinningData[niVertex].count;
-			// instead of the bone index, put rigidBodyIndex
-			verticesSkinningData[niVertex].bones[count] = rigidBodyIndex;
-			verticesSkinningData[niVertex].weights[count] = fWeight;
-			++verticesSkinningData[niVertex].count;
+
+			auto &vertexIndexSet = controlPointIndexToLocalBufferVertexIndexSet[cpIndex];
+			// for every vertex using this control point
+			for (set<int>::iterator vertIt = vertexIndexSet.begin(); vertIt != vertexIndexSet.end(); ++vertIt)
+			{
+				int niVertex = *vertIt;
+				auto &vsd = verticesSkinningData[niVertex];
+				assert(vsd.count < vsd.maxSize);
+				// instead of the bone index, put rigidBodyIndex
+				vsd.bones[vsd.count] = nodeAnimData->index;
+				vsd.weights[vsd.count] = fWeight;
+				++vsd.count;
+			}
 		}
 	}
 
-	// for each vertex migrate the weights
+	// for each vertex migrate the weights (choose only 4 strongest weights)
 	for (int i = 0; i < (int)csgc.vertices.size(); ++i)
 	{
 		AppCommands::SkinnedMeshVertex &vert = csgc.vertices[i];
-		vert.BoneWeights = { 0.0f, 0.0f, 0.0f, 0.0f };
+		float weights[] = { 0.0f, 0.0f, 0.0f, 0.0f };
 		int newArray[] = { 0, 0, 0, 0 };
 		memcpy(vert.BoneIndices, newArray, sizeof(int) * 4);
-		VertexSkinningData &vertSkinningData = verticesSkinningData[i];
+		auto &vertSkinningData = verticesSkinningData[i];
 		float weightSum = 0.0f;
 
 		// populate with weights
@@ -448,7 +499,7 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 			// add it to the list
 			if (greatestWeightIndex != -1)
 			{
-				vert.BoneWeights[j] = greatestWeight;
+				weights[j] = greatestWeight;
 				vert.BoneIndices[j] = greatestWeightIndex;
 				weightSum += greatestWeight;
 			}
@@ -457,7 +508,45 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 		// fix the sum
 		for (int j = 0; j < MAX_BONES_PER_VERTEX; ++j)
 		{
-			vert.BoneWeights[j] /= weightSum;
+			assert(weightSum != 0.0f);
+			weights[j] /= weightSum;
+		}
+
+		// distribute the weights along the bone specific vertex data
+		XMVECTOR pL = XMLoadFloat4(&vert.Position[0]);
+		XMVECTOR nL = XMLoadFloat3(&vert.Normal[0]);
+		XMVECTOR tL = XMLoadFloat3(&vert.TangentU[0]);
+		for (int j = 0; j < MAX_BONES_PER_VERTEX; ++j)
+		{
+			XMVECTOR p = pL * weights[j];
+			XMVECTOR n = nL * weights[j];
+			XMVECTOR t = tL * weights[j];
+			XMStoreFloat4(&vert.Position[j], p);
+			XMStoreFloat3(&vert.Normal[j], n);
+			XMStoreFloat3(&vert.TangentU[j], t);
+		}
+	}
+
+	// for each vertex -> transform (position, normal, tangent) to the respective bone space
+	for (int i = 0; i < (int)csgc.vertices.size(); ++i)
+	{
+		XMVECTOR pL, nL, tL;
+		XMMATRIX inverseBindPose;
+		// for each bone space
+		for (int j = 0; j < MAX_BONES_PER_VERTEX; ++j)
+		{
+			// transform
+			inverseBindPose = rigidBodyInverseBindPoseMap[csgc.vertices[i].BoneIndices[j]];
+			pL = XMLoadFloat4(&csgc.vertices[i].Position[j]);
+			pL = XMVector4Transform(pL, inverseBindPose);
+			nL = XMLoadFloat3(&csgc.vertices[i].Normal[j]);
+			nL = XMVector3TransformNormal(nL, inverseBindPose);
+			tL = XMLoadFloat3(&csgc.vertices[i].TangentU[j]);
+			tL = XMVector3TransformNormal(tL, inverseBindPose);
+			// store
+			XMStoreFloat4(&csgc.vertices[i].Position[j], pL);
+			XMStoreFloat3(&csgc.vertices[i].Normal[j], nL);
+			XMStoreFloat3(&csgc.vertices[i].TangentU[j], tL);
 		}
 	}
 
@@ -498,7 +587,7 @@ HumanoidSkeleton::~HumanoidSkeleton()
 	}
 }
 
-void HumanoidSkeleton::Initialize(const wchar_t * fbxFilePath, const wchar_t *speckStructureJSON, App *pApp, bool saveFixed)
+void HumanoidSkeleton::Initialize(const wchar_t * fbxFilePath, const wchar_t *speckStructureJSON, App *pApp, bool useSkinning, bool saveFixed)
 {
 	// Get world properties
 	WorldCommands::GetWorldPropertiesCommand gwp;
@@ -612,7 +701,7 @@ void HumanoidSkeleton::Initialize(const wchar_t * fbxFilePath, const wchar_t *sp
 	mSpeckBodyStructureJSONFile.assign((istreambuf_iterator<char>(fileStream)), istreambuf_iterator<char>());
 	fileStream.close();
 
-	CreateSpecksBody(pApp);
+	CreateSpecksBody(pApp, useSkinning);
 
 	// Set the state
 	mState = BindPose;

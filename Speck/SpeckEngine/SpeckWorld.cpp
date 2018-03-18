@@ -100,13 +100,6 @@ void SpeckWorld::Update()
 	mMainPassCB.FarZ = 1000.0f;
 	mMainPassCB.TotalTime = sApp->GetEngineCore().GetTimer()->TotalTime();
 	mMainPassCB.DeltaTime = sApp->GetEngineCore().GetTimer()->DeltaTime();
-	mMainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
-	mMainPassCB.Lights[0].Direction = { 0.57735f, -0.57735f, 0.57735f };
-	mMainPassCB.Lights[0].Strength = { 0.8f, 0.8f, 0.8f };
-	mMainPassCB.Lights[1].Direction = { -0.57735f, -0.57735f, 0.57735f };
-	mMainPassCB.Lights[1].Strength = { 0.4f, 0.4f, 0.4f };
-	mMainPassCB.Lights[2].Direction = { 0.0f, -0.707f, -0.707f };
-	mMainPassCB.Lights[2].Strength = { 0.2f, 0.2f, 0.2f };
 
 	auto currPassCB = sApp->mCurrFrameResource->PassCB.get();
 	currPassCB->CopyData(0, mMainPassCB);

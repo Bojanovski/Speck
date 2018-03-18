@@ -132,18 +132,23 @@ namespace Speck
 		{
 			// List of specks to be added to the engine.
 			std::vector<NewSpeck> newSpecks;
+
 			// Type of the new specks.
 			SpeckType speckType;
+
 			// Friction coefficient
 			float frictionCoefficient = 0.5f;
+
 			// Speck mass
 			float speckMass = 1.0f;
+
 			// Special properties
 			union {
 				struct
 				{
 					// Cohesion coefficient
 					float cohesionCoefficient;
+
 					// Viscosity coefficient
 					float viscosityCoefficient;
 				} fluid;
@@ -151,6 +156,9 @@ namespace Speck
 				{
 					// Indices of the two connected rigid bodies
 					UINT rigidBodyIndex[2];
+
+					// Calculate signed distance field gradient for collision resolution
+					bool calculateSDFGradient;
 				} rigidBodyJoint;
 			};
 		protected:

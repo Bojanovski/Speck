@@ -91,9 +91,12 @@ namespace Speck
 			DLL_EXPORT virtual int Execute(void *ptIn, CommandResult *result) const override;
 		};
 
-		struct SkinnedMeshVertex : public StaticMeshVertex
+		struct SkinnedMeshVertex
 		{
-			std::array<float, MAX_BONES_PER_VERTEX> BoneWeights;
+			DirectX::XMFLOAT4 Position[MAX_BONES_PER_VERTEX];
+			DirectX::XMFLOAT3 Normal[MAX_BONES_PER_VERTEX];
+			DirectX::XMFLOAT3 TangentU[MAX_BONES_PER_VERTEX];
+			DirectX::XMFLOAT2 TexC;
 			int BoneIndices[MAX_BONES_PER_VERTEX];
 		};
 

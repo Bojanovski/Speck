@@ -251,15 +251,11 @@ int AppCommands::CreateSkinnedGeometryCommand::Execute(void * ptIn, CommandResul
 
 	for (int i = 0; i < vertices.size(); i++)
 	{
-		mesh.Vertices[i].Position = vertices[i].Position;
-		mesh.Vertices[i].Normal = vertices[i].Normal;
-		mesh.Vertices[i].TangentU = vertices[i].TangentU;
+		memcpy(mesh.Vertices[i].Position, vertices[i].Position, sizeof(mesh.Vertices[i].Position));
+		memcpy(mesh.Vertices[i].Normal, vertices[i].Normal, sizeof(mesh.Vertices[i].Normal));
+		memcpy(mesh.Vertices[i].TangentU, vertices[i].TangentU, sizeof(mesh.Vertices[i].TangentU));
 		mesh.Vertices[i].TexC = vertices[i].TexC;
-		mesh.Vertices[i].BoneWeights.x = vertices[i].BoneWeights[0];
-		mesh.Vertices[i].BoneWeights.y = vertices[i].BoneWeights[1];
-		mesh.Vertices[i].BoneWeights.z = vertices[i].BoneWeights[2];
-		mesh.Vertices[i].BoneWeights.w = vertices[i].BoneWeights[3];
-		memcpy(&mesh.Vertices[i].BoneIndices[0], &vertices[i].BoneIndices[0], sizeof(mesh.Vertices[i].BoneIndices));
+		memcpy(&mesh.Vertices[i].BoneIndices, &vertices[i].BoneIndices, sizeof(mesh.Vertices[i].BoneIndices));
 	}
 
 	// Define the SubmeshGeometry that cover different 

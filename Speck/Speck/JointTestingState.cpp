@@ -100,7 +100,7 @@ void JointTestingState::Initialize()
 
 	SpeckPrimitivesGenerator speckPrimGen(GetWorld());
 	int num = 0;
-	for (int i = 0; i < 10; i += 1)
+	for (int i = 0; i < 50; i += 1)
 	{
 		num += speckPrimGen.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::AsymetricHingeJoint, { 0.0f, 20.0f + i * 5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 		num += speckPrimGen.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::HingeJoint, { -10.0f, 20.0f + i * 5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
@@ -108,9 +108,10 @@ void JointTestingState::Initialize()
 		num += speckPrimGen.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::StiffJoint, { 20.0f, 20.0f + i * 5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 	}
 
-	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", false, { 0.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
-	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", false, { 10.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
-	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", false, { -10.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", false, { 20.01f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", false, { 10.01f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", false, { 0.01f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest", false, { -10.01f, 10.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 
 	// add gravity
 	WorldCommands::AddExternalForceCommand efc;
@@ -124,7 +125,7 @@ void JointTestingState::Initialize()
 	GetWorld().ExecuteCommand(stmc);
 
 	// position the camera
-	SetLookAtCameraController slacc(XMFLOAT3(2.0f, 28.0f, -30.0f), XMFLOAT3(2.0f, 10.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f));
+	SetLookAtCameraController slacc(XMFLOAT3(8.0f, 28.0f, -30.0f), XMFLOAT3(8.0f, 10.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f));
 	AppCommands::UpdateCameraCommand ucc;
 	ucc.ccPt = &slacc;
 	GetApp().ExecuteCommand(ucc);
@@ -144,62 +145,6 @@ void JointTestingState::Update(float dt)
 	wstring mspfStr = to_wstring(GetEngineCore().GetProcessAndSystemData()->m_mSPF);
 	cmd.text = L"    fps: " + fpsStr + L"   spf: " + mspfStr;
 	GetApp().ExecuteCommand(cmd);
-
-	static float t = 0.0f;
-	t += dt;
-
-	auto ih = GetApp().GetEngineCore().GetInputHandler();
-	float fPressedTime;
-	ih->IsPressed(0x46, &fPressedTime); // F key
-
-	static float anglularVelocity = 1.0f;
-	static float angle = 0.0f;
-	float pressed_1_Time;
-	ih->IsPressed(0x31, &pressed_1_Time); // 1 key
-	if (pressed_1_Time > 0.0f) anglularVelocity += dt * 2.0f;
-
-	float pressed_2_Time;
-	ih->IsPressed(0x32, &pressed_2_Time); // 2 key
-	if (pressed_2_Time > 0.0f) anglularVelocity -= dt * 2.0f;
-
-	angle += anglularVelocity * dt;
-
-	//if (fPressedTime == 0.0f)
-	//{
-	//	WorldCommands::UpdateSpeckRigidBodyCommand command;
-	//	command.movementMode = WorldCommands::RigidBodyMovementMode::CPU;
-	//	command.rigidBodyIndex = 0;
-	//	XMStoreFloat3(&command.transform.mT, XMVectorSet(0.0f, 9.0f, 0.0f, 1.0f));
-	//	XMStoreFloat4(&command.transform.mR, XMQuaternionRotationRollPitchYaw(angle, 0, 0));
-	//	GetWorld().ExecuteCommand(command);
-
-	//	command.movementMode = WorldCommands::RigidBodyMovementMode::CPU;
-	//	command.rigidBodyIndex = 2;
-	//	XMStoreFloat3(&command.transform.mT, XMVectorSet(-10.0f, 9.0f, 0.0f, 1.0f));
-	//	XMStoreFloat4(&command.transform.mR, XMQuaternionRotationRollPitchYaw(angle, 0, 0));
-	//	GetWorld().ExecuteCommand(command);
-
-	//	command.movementMode = WorldCommands::RigidBodyMovementMode::CPU;
-	//	command.rigidBodyIndex = 4;
-	//	XMStoreFloat3(&command.transform.mT, XMVectorSet(10.0f, 9.0f, 0.0f, 1.0f));
-	//	XMStoreFloat4(&command.transform.mR, XMQuaternionRotationRollPitchYaw(angle, 0, 0));
-	//	GetWorld().ExecuteCommand(command);
-	//}
-	//else
-	//{
-	//	WorldCommands::UpdateSpeckRigidBodyCommand command;
-	//	command.movementMode = WorldCommands::RigidBodyMovementMode::GPU;
-	//	command.rigidBodyIndex = 0;
-	//	GetWorld().ExecuteCommand(command);
-
-	//	command.movementMode = WorldCommands::RigidBodyMovementMode::GPU;
-	//	command.rigidBodyIndex = 2;
-	//	GetWorld().ExecuteCommand(command);
-
-	//	command.movementMode = WorldCommands::RigidBodyMovementMode::GPU;
-	//	command.rigidBodyIndex = 4;
-	//	GetWorld().ExecuteCommand(command);
-	//}
 }
 
 void JointTestingState::Draw(float dt)

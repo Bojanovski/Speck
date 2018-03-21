@@ -29,6 +29,10 @@ void SkeletonTestingState::Initialize()
 	lftc.minFrameTime = 1.0f / 60.0f;
 	GetApp().ExecuteCommand(lftc);
 
+	WorldCommands::SetSpecksSolverParametersCommand sspc;
+	sspc.substepsIterations = 2;
+	GetWorld().ExecuteCommand(sspc);
+
 	//
 	// PBR testing
 	//
@@ -97,18 +101,18 @@ void SkeletonTestingState::Initialize()
 	// Generate the world
 	//
 	StaticPrimitivesGenerator staticPrimGen(GetWorld());
-	staticPrimGen.GenerateBox({ 70.0f, 5.0f, 70.0f }, "pbrMatTest", { 0.0f, -4.2f, 0.0f }, { 0.0f, 0.0f, 0.0f }); // ground
-	staticPrimGen.GenerateBox({ 5.0f, 200.0f, 60.0f }, "pbrMatTest", { 30.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	staticPrimGen.GenerateBox({ 70.0f, 5.0f, 70.0f }, "pbrMatTest", { 0.0f, -3.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }); // ground
+	staticPrimGen.GenerateBox({ 5.0f, 200.0f, 60.0f }, "pbrMatTest", { 25.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 	staticPrimGen.GenerateBox({ 60.0f, 200.0f, 5.0f }, "pbrMatTest", { 0.0f, -0.0f, 15.0f }, { 0.0f, 0.0f, 0.0f });
-	staticPrimGen.GenerateBox({ 5.0f, 200.0f, 60.0f }, "pbrMatTest", { -30.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	staticPrimGen.GenerateBox({ 5.0f, 200.0f, 60.0f }, "pbrMatTest", { -25.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 	staticPrimGen.GenerateBox({ 60.0f, 100.0f, 50.0f }, "pbrMatTest", { 0.0f, 0.0f, -40.0f }, { 0.0f, 0.0f, 0.0f });
 
 	WorldCommands::AddSpecksCommand asrbc;
 	asrbc.speckType = WorldCommands::SpeckType::Fluid;
 	asrbc.frictionCoefficient = 0.001f;
-	asrbc.fluid.cohesionCoefficient = 0.5f;
-	asrbc.fluid.viscosityCoefficient = 0.1f;
-	asrbc.speckMass = 0.4f;
+	asrbc.fluid.cohesionCoefficient = 0.6f;
+	asrbc.fluid.viscosityCoefficient = 0.7f;
+	asrbc.speckMass = 0.5f;
 	asrbc.newSpecks.resize(16000);
 	int n = (int)pow(asrbc.newSpecks.size(), 1.0f / 3.0f);
 	int nPow3 = n*n*n;
@@ -138,6 +142,7 @@ void SkeletonTestingState::Initialize()
 	// Add some rigd bodies
 	SpeckPrimitivesGenerator speckPrimGen(GetWorld());
 	speckPrimGen.SetSpeckMass(2.0f);
+	speckPrimGen.SetSpeckFrictionCoefficient(0.01f);
 	speckPrimGen.GenerateBox(4, 4, 4, "pbrMatTest2", false, { 8.0f, 6.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 	speckPrimGen.GenerateBox(6, 2, 2, "pbrMatTest2", false, { 8.0f, 9.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
 
@@ -159,11 +164,11 @@ void SkeletonTestingState::Initialize()
 	mHumanoidSkeleton->Initialize(L"Data/Animations/knight_dancing.fbx", L"Data/Animations/knight.json", &GetApp(), false);
 
 	WorldCommands::SetTimeMultiplierCommand stmc;
-	stmc.timeMultiplierConstant = 1.0f;
+	stmc.timeMultiplierConstant = 2.0f;
 	GetWorld().ExecuteCommand(stmc);
 
 	// position camera
-	SetLookAtCameraController slacc(XMFLOAT3(2.0f, 28.0f, -30.0f), XMFLOAT3(2.0f, 10.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f));
+	SetLookAtCameraController slacc(XMFLOAT3(2.0f, 32.0f, -38.0f), XMFLOAT3(2.0f, 10.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f));
 	AppCommands::UpdateCameraCommand ucc;
 	ucc.ccPt = &slacc;
 	GetApp().ExecuteCommand(ucc);
@@ -187,11 +192,11 @@ void SkeletonTestingState::Update(float dt)
 	t += dt;
 
 
-	if (t < 29.0f && t > 0.0f)
+	if (t < 20.1f && t > 0.0f)
 	{
-		mHumanoidSkeleton->UpdateAnimation(t*0.7f);
+		mHumanoidSkeleton->UpdateAnimation(t*1.0f);
 	}
-	else if (t > 29.0f)
+	else if (t > 20.1f)
 	{
 		mHumanoidSkeleton->StartSimulation();
 	}

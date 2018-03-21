@@ -6,9 +6,23 @@
 #include "SkeletonTestingState.h"
 #include "SkinnedSkeletonTestingState.h"
 #include "JointTestingState.h"
+#include "JointShowcaseState.h"
 
 using namespace Speck;
 using namespace std;
+
+int Test0(HINSTANCE hInstance)
+{
+	unique_ptr<EngineCore> ec;
+	unique_ptr<World> w;
+	unique_ptr<App> app;
+	CreateSpeckApp(hInstance, 0.25f, 100, 1000, &ec, &w, &app);
+	if (!app->Initialize())
+		return 1;
+
+	int result = app->Run(make_unique<JointShowcaseState>(*ec));
+	return result;
+}
 
 int Test1(HINSTANCE hInstance)
 {
@@ -58,7 +72,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 
 	try
 	{
-		return Test3(hInstance);
+		return Test0(hInstance);
 	}
 	catch (Exception &ex)
 	{

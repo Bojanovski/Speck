@@ -102,10 +102,19 @@ void main(int3 threadGroupID : SV_GroupID, int3 dispatchThreadID : SV_DispatchTh
 	if (gPhaseIteration == 0)
 	{ 
 		// first iteration, calculate A per link (particle)
-		SpeckData thisLinkSpeck = gSpecks[thisLink.speckIndex];
 		float3 xi = thisLinkSpeck.pos_predicted;
 		float3 ri = thisLink.posInRigidBody;
 		A = GetOuterProduct(xi - c, ri);
+
+		if (posInBlock == 0)
+		{
+			// If this is the first speck in the rigid body, add some virtual specks to prevent rank deficiency.
+			float fac = 0.01f;
+			A += fac * GetOuterProduct(normalize(gRigidBodies[thisLink.rbIndex].world[0].xyz), float3(1.0f, 0.0f, 0.0f));
+			A += fac * GetOuterProduct(normalize(gRigidBodies[thisLink.rbIndex].world[1].xyz), float3(0.0f, 1.0f, 0.0f));
+			A += fac * GetOuterProduct(normalize(gRigidBodies[thisLink.rbIndex].world[2].xyz), float3(0.0f, 0.0f, 1.0f));
+		}
+
 		// Save the data
 		gSpeckRigidBodyLinkCache[linkIndex].A = A;
 	}
@@ -129,6 +138,7 @@ void main(int3 threadGroupID : SV_GroupID, int3 dispatchThreadID : SV_DispatchTh
 		{
 			float3x3 Q = Get_Q_from_QS_decomposition(A);
 			float4x4 world;
+
 			world[0] = float4(Q[0][0], Q[1][0], Q[2][0], 0.0f);
 			world[1] = float4(Q[0][1], Q[1][1], Q[2][1], 0.0f);
 			world[2] = float4(Q[0][2], Q[1][2], Q[2][2], 0.0f);

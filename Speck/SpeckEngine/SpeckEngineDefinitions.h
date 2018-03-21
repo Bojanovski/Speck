@@ -64,6 +64,25 @@
 // Useful definitions
 //
 
+inline std::wstring StrToWStr(const std::string &str)
+{
+	return std::wstring(str.begin(), str.end());
+}
+inline std::wstring StrToWStr(const char *str)
+{
+	std::string strTemp(str);
+	return std::wstring(strTemp.begin(), strTemp.end());
+}
+inline std::string	WStrToStr(const std::wstring &str)
+{
+	return std::string(str.begin(), str.end());
+}
+inline std::string	WStrToStr(const wchar_t *wstr)
+{
+	std::wstring wstrTemp(wstr);
+	return std::string(wstrTemp.begin(), wstrTemp.end());
+}
+
 typedef struct { UINT x, y; } UINT2;
 typedef struct { UINT x, y, z; } UINT3;
 typedef struct { UINT x, y, z, w; } UINT4;

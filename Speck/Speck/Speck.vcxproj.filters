@@ -42,6 +42,9 @@
     <ClCompile Include="SkinnedSkeletonTestingState.cpp">
       <Filter>Source Files\GameStates</Filter>
     </ClCompile>
+    <ClCompile Include="JointShowcaseState.cpp">
+      <Filter>Source Files\GameStates</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HumanoidSkeleton.h">
@@ -64,6 +67,9 @@
     </ClInclude>
     <ClInclude Include="Json.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="JointShowcaseState.h">
+      <Filter>Header Files\GameStates</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

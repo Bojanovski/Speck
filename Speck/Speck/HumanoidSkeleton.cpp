@@ -550,7 +550,70 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 		}
 	}
 
+	// Create the geometry
 	pApp->ExecuteCommand(csgc);
+
+	/*
+	// Create the material
+	int materialCount = node->GetSrcObjectCount<FbxSurfaceMaterial>();
+	for (int i = 0; i < materialCount; ++i)
+	{
+		FbxSurfaceMaterial* material = (FbxSurfaceMaterial*)node->GetSrcObject<FbxSurfaceMaterial>(i);
+		if (material == NULL) continue;
+
+		// This only gets the material of type sDiffuse, you probably need to traverse all Standard Material Property by its name to get all possible textures.
+		FbxProperty prop = material->FindProperty(FbxSurfaceMaterial::sDiffuse);
+
+		// Check if it's layeredtextures
+		int layeredTextureCount = prop.GetSrcObjectCount<FbxLayeredTexture>();
+
+		if (layeredTextureCount > 0)
+		{
+			//for (int j = 0; j < layeredTextureCount; j++)
+			//{
+			//	FbxLayeredTexture* layered_texture = FbxCast<FbxLayeredTexture>(prop.GetSrcObject<FbxLayeredTexture>(j));
+			//	int lcount = layered_texture->GetSrcObjectCount<FbxTexture>();
+
+			//	for (int k = 0; k < lcount; k++)
+			//	{
+			//		FbxTexture* texture = FbxCast<FbxTexture>(layered_texture->GetSrcObject<FbxTexture>(k));
+			//		// Then, you can get all the properties of the texture, include its name
+			//		const char* textureName = texture->GetName();
+			//	}
+			//}
+
+			// source: https://stackoverflow.com/questions/19634369/read-texture-filename-from-fbx-with-fbx-sdk-c
+			THROW_NOT_IMPLEMENTED;
+		}
+		else
+		{
+			// Directly get textures
+			int textureCount = prop.GetSrcObjectCount<FbxTexture>();
+			for (int j = 0; j < textureCount; j++)
+			{
+				FbxFileTexture* texture = FbxCast<FbxFileTexture>(prop.GetSrcObject<FbxFileTexture>(j));
+				AppCommands::LoadResourceCommand lrc_ao;
+				lrc_ao.name = texture->GetName();
+				lrc_ao.path = StrToWStr(texture->GetFileName());
+				lrc_ao.resType = AppCommands::ResourceType::Texture;
+				pApp->ExecuteCommand(lrc_ao);
+			}
+		}
+
+		AppCommands::CreateMaterialCommand cmc_pbr;
+		//cmc_pbr.materialName = geoMatName;
+		//cmc_pbr.albedoTexName = lrc_albedo.name;
+		//cmc_pbr.normalTexName = lrc_normal.name;
+		//cmc_pbr.heightTexName = lrc_height.name;
+		//cmc_pbr.metalnessTexName = lrc_metalness.name;
+		//cmc_pbr.roughnessTexName = lrc_rough.name;
+		//cmc_pbr.aoTexName = lrc_ao.name;
+		cmc_pbr.DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+		cmc_pbr.FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+		cmc_pbr.Roughness = 1.0f;
+		pApp->ExecuteCommand(cmc_pbr);
+	}
+	*/
 
 	// Add an object
 	WorldCommands::AddRenderItemCommand cmd3;

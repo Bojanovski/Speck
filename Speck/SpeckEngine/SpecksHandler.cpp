@@ -384,6 +384,15 @@ void SpecksHandler::BuildBuffers(std::vector<std::unique_ptr<FrameResource>> *fr
 
 	// Rigid bodies data
 	vector<GPU::RigidBodyData> data5(MAX_RIGID_BODIES);
+	for (auto &d : data5)
+	{
+		d.c = XMFLOAT3(0.0f, 0.0f, 0.0f);
+		d.world = XMFLOAT4X4(
+			1.0f, 0.0f, 0.0f, 0.0f,
+			0.0f, 1.0f, 0.0f, 0.0f,
+			0.0f, 0.0f, 1.0f, 0.0f,
+			0.0f, 0.0f, 0.0f, 1.0f);
+	}
 	byteSize = (UINT)data5.size() * sizeof(GPU::RigidBodyData);
 	rd = CD3DX12_RESOURCE_DESC::Buffer(byteSize);
 	rd.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;

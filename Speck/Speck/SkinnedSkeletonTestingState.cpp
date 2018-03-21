@@ -29,6 +29,10 @@ void SkinnedSkeletonTestingState::Initialize()
 	lftc.minFrameTime = 1.0f / 60.0f;
 	GetApp().ExecuteCommand(lftc);
 
+	WorldCommands::SetSpecksSolverParametersCommand sspc;
+	sspc.substepsIterations = 1;
+	GetWorld().ExecuteCommand(sspc);
+
 	//
 	// PBR testing
 	//

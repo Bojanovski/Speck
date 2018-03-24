@@ -47,6 +47,8 @@ int SpeckPrimitivesGenerator::GenerateBox(int nx, int ny, int nz, const char * m
 	// add the mesh skin
 	if (useSkin) 
 	{
+		XMVECTOR s, r, t;
+		XMMatrixDecompose(&s, &r, &t, mat);
 		WorldCommands::AddRenderItemCommand aric;
 		aric.geometryName = "shapeGeo";
 		aric.materialName = materialName;
@@ -55,6 +57,7 @@ int SpeckPrimitivesGenerator::GenerateBox(int nx, int ny, int nz, const char * m
 		aric.speckRigidBodyRenderItem.rigidBodyIndex = commandResult.rigidBodyIndex;
 		aric.speckRigidBodyRenderItem.localTransform.MakeIdentity();
 		aric.staticRenderItem.worldTransform.mS = XMFLOAT3(width + 2.0f * mSpeckRadius, height + 2.0f * mSpeckRadius, depth + 2.0f * mSpeckRadius);
+		XMStoreFloat4(&aric.staticRenderItem.worldTransform.mR, r);
 		GetWorld().ExecuteCommand(aric);
 	}
 

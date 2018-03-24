@@ -172,6 +172,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="FBXSceneManager.cpp" />
     <ClCompile Include="JointShowcaseState.cpp" />
     <ClCompile Include="SkinnedSkeletonTestingState.cpp" />
     <ClCompile Include="SpeckPrimitivesGenerator.cpp" />
@@ -182,6 +183,7 @@
     <ClCompile Include="StaticPrimitivesGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="FBXSceneManager.h" />
     <ClInclude Include="JointShowcaseState.h" />
     <ClInclude Include="Json.h" />
     <ClInclude Include="SkinnedSkeletonTestingState.h" />

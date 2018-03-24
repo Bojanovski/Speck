@@ -5,6 +5,7 @@
 
 #include "SpeckPrimitivesGenerator.h"
 #include "Json.h"
+#include "FBXSceneManager.h"
 
 // FBX
 #pragma warning( push )
@@ -151,6 +152,7 @@ void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp, bool useSkinning)
 	// some constants
 	const float speckMass = 2.0f;
 	const float frictionCoefficient = 0.8f;
+	int speckCount = 0;
 
 	// Create a body made out of specks
 	int numStacks = mScene->GetSrcObjectCount<FbxAnimStack>();
@@ -211,6 +213,7 @@ void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp, bool useSkinning)
 						command.newSpecks.push_back(speck);
 					}
 
+					speckCount += (int)command.newSpecks.size();
 					ProcessBone(node, &command, jsonBoneName);
 					break;
 				}
@@ -315,6 +318,7 @@ void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp, bool useSkinning)
 					// should use SDF gradient?
 					commandForJoint.rigidBodyJoint.calculateSDFGradient = (commandForJoint.newSpecks.size() > 2);
 
+					speckCount += (int)commandForJoint.newSpecks.size();
 					GetWorld().ExecuteCommand(commandForJoint);
 				}
 			}
@@ -430,13 +434,13 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 		XMFLOAT4X4 bindPoseMatrixF;
 		Conv(&bindPoseMatrixF, bindPoseMatrix);
 		XMMATRIX bindPose = XMLoadFloat4x4(&bindPoseMatrixF);
-		
+
 		// get the inverse local transform
 		XMVECTOR inverseLocalTranslation = XMLoadFloat3(&nodeAnimData->centerOfMass);
 		XMVECTOR inverseLocalRotation = XMLoadFloat4(&nodeAnimData->inverseRotation);
 		XMVECTOR inverseLocalScale = XMLoadFloat3(&nodeAnimData->inverseScale);
 		XMMATRIX inverseLocalTransform = XMMatrixTranslationFromVector(inverseLocalTranslation) * XMMatrixRotationQuaternion(inverseLocalRotation) * XMMatrixScalingFromVector(inverseLocalScale);
-		
+
 		// get the inverse 'offset matrix' without scale
 		XMMATRIX w = XMMatrixMultiply(inverseLocalTransform, bindPose);
 		XMVECTOR s, r, t;
@@ -618,9 +622,9 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 	// Add an object
 	WorldCommands::AddRenderItemCommand cmd3;
 	XMStoreFloat4x4(&cmd3.texTransform, XMMatrixScaling(20.0f, 20.0f, 0.4f));
-	cmd3.geometryName = csgc.geometryName;
+	cmd3.geometryName = node->GetName();
 	cmd3.materialName = "pbrMatTest";
-	cmd3.meshName = csgc.meshName;
+	cmd3.meshName = meshPt->GetName();
 	cmd3.type = WorldCommands::RenderItemType::SpeckSkeletalBody;
 	cmd3.staticRenderItem.worldTransform.mS = XMFLOAT3(1.0f, 1.0f, 1.0f);
 	cmd3.staticRenderItem.worldTransform.mT = XMFLOAT3(0.0f, 0.0f, 0.0f);
@@ -628,26 +632,17 @@ void HumanoidSkeleton::ProcessRenderSkin(fbxsdk::FbxNode * node, App *pApp)
 	GetWorld().ExecuteCommand(cmd3);
 }
 
-HumanoidSkeleton::HumanoidSkeleton(World &w)
-	: WorldUser(w),
-	mScene(0),
-	mSDKManager(0)
+HumanoidSkeleton::HumanoidSkeleton(FBXSceneManager *sceneManager, World &w)
+	: WorldUser(w)
+	, mSceneManager(sceneManager)
+	, mScene(0)
 {
 	
 }
 
 HumanoidSkeleton::~HumanoidSkeleton()
 {
-	if (mScene)
-	{
-		mScene->Destroy();
-		mScene = 0;
-	}
-	if (mSDKManager)
-	{
-		mSDKManager->Destroy();
-		mSDKManager = 0;
-	}
+
 }
 
 void HumanoidSkeleton::Initialize(const wchar_t * fbxFilePath, const wchar_t *speckStructureJSON, App *pApp, bool useSkinning, bool saveFixed)
@@ -658,102 +653,8 @@ void HumanoidSkeleton::Initialize(const wchar_t * fbxFilePath, const wchar_t *sp
 	GetWorld().ExecuteCommand(gwp, &gwpr);
 	mSpeckRadius = gwpr.speckRadius;
 
-	// Create the FBX SDK manager
-	mSDKManager = FbxManager::Create();
-
-	// Create an IOSettings object.
-	FbxIOSettings * ios = FbxIOSettings::Create(mSDKManager, IOSROOT);
-	mSDKManager->SetIOSettings(ios);
-
-	// ... Configure the FbxIOSettings object ...
-
-	// Create an importer.
-	FbxImporter* lImporter = FbxImporter::Create(mSDKManager, "");
-
-	// Initialize the importer.
-	wstring ws(fbxFilePath);
-	string filename(ws.begin(), ws.end());
-	bool lImportStatus = lImporter->Initialize(filename.c_str(), -1, mSDKManager->GetIOSettings());
-
-	// If any errors occur in the call to FbxImporter::Initialize(), the method returns false.
-	// To retrieve the error, you must call GetStatus().GetErrorString() from the FbxImporter object. 
-	if (!lImportStatus)
-	{
-		LOG(L"Call to FbxImporter::Initialize() failed.", ERROR);
-		//printf("Error returned: %s\n\n", lImporter->GetStatus().GetErrorString());
-		return;
-	}
-
-	// Create a new scene so it can be populated by the imported file.
-	mScene = FbxScene::Create(mSDKManager, "myScene");
-
-	// Import the contents of the file into the scene.
-	lImporter->Import(mScene);
-
-	// File format version numbers to be populated.
-	int lFileMajor, lFileMinor, lFileRevision;
-
-	// Populate the FBX file format version numbers with the import file.
-	lImporter->GetFileVersion(lFileMajor, lFileMinor, lFileRevision);
-
-	// The file has been imported; we can get rid of the unnecessary objects.
-	lImporter->Destroy();
-
-	if (mScene->GetGlobalSettings().GetSystemUnit() == FbxSystemUnit::cm)
-	{
-		const FbxSystemUnit::ConversionOptions lConversionOptions = {
-			false, /* mConvertRrsNodes */
-			true, /* mConvertAllLimits */
-			true, /* mConvertClusters */
-			true, /* mConvertLightIntensity */
-			true, /* mConvertPhotometricLProperties */
-			true  /* mConvertCameraClipPlanes */
-		};
-
-		// Convert the scene to meters using the defined options.
-		FbxSystemUnit::dm.ConvertScene(mScene, lConversionOptions);
-	}
-
-	if (saveFixed)
-	{
-		// Fix the geometry
-		FbxGeometryConverter gc(mSDKManager);
-		gc.Triangulate(mScene, true);
-
-		// Bake animation layers
-		FbxAnimEvaluator* sceneEvaluator = mScene->GetAnimationEvaluator();
-		int numStacks = mScene->GetSrcObjectCount<FbxAnimStack>();
-		for (int i = 0; i < numStacks; i++)
-		{
-			FbxAnimStack* pAnimStack = FbxCast<FbxAnimStack>(mScene->GetSrcObject<FbxAnimStack>(i));
-			int numAnimLayers = pAnimStack->GetMemberCount<FbxAnimLayer>();
-			FbxTime lFramePeriod;
-			lFramePeriod.SetSecondDouble(1.0 / 24); // 24 is the frame rate
-			FbxTimeSpan lTimeSpan = pAnimStack->GetLocalTimeSpan();
-			pAnimStack->BakeLayers(sceneEvaluator, lTimeSpan.GetStart(), lTimeSpan.GetStop(), lFramePeriod);
-		}
-
-		// Create an exporter.
-		FbxExporter* exporter = FbxExporter::Create(mSDKManager, "");
-		// Initialize the exporter.
-		bool lExportStatus = exporter->Initialize(filename.c_str(), -1, mSDKManager->GetIOSettings());
-		// If any errors occur in the call to FbxExporter::Initialize(), the method returns false.
-		// To retrieve the error, you must call GetStatus().GetErrorString() from the FbxImporter object. 
-		if (!lExportStatus)
-		{
-			LOG(L"Call to FbxExporter::Initialize() failed.", ERROR);
-			return;
-		}
-
-		// Export the scene.
-		exporter->Export(mScene);
-
-		// Destroy the exporter.
-		exporter->Destroy();
-	}
-
-	// Destroy the IOSettings object.
-	ios->Destroy();
+	mScene = mSceneManager->GetScene(fbxFilePath);
+	assert(mScene);
 
 	// Open the JSON file, read from it and close it
 	fstream fileStream;
@@ -768,10 +669,75 @@ void HumanoidSkeleton::Initialize(const wchar_t * fbxFilePath, const wchar_t *sp
 
 	// Set the state
 	mState = BindPose;
+
+	// Set the transform
+	SetWorldTransform(XMMatrixIdentity());
+}
+
+void HumanoidSkeleton::SetWorldTransform(const XMFLOAT4X4 & world)
+{
+	SetWorldTransform(XMLoadFloat4x4(&world));
+}
+
+void HumanoidSkeleton::SetWorldTransform(CXMMATRIX world)
+{
+	XMStoreFloat4x4(&mWorld, world);
+	if (mState != BindPose) return;
+
+	// Create a body made out of specks
+	int numStacks = mScene->GetSrcObjectCount<FbxAnimStack>();
+	FbxAnimStack* pAnimStack = FbxCast<FbxAnimStack>(mScene->GetSrcObject<FbxAnimStack>(0));
+	vector<FbxNode *> nodeStack;
+	FbxNode *root = mScene->GetRootNode();
+	nodeStack.push_back(root);
+	FbxAnimEvaluator* sceneEvaluator = mScene->GetAnimationEvaluator();
+
+	while (!nodeStack.empty())
+	{
+		// Pop the last item on the stack
+		FbxNode *node = *(nodeStack.end() - 1);
+		nodeStack.pop_back();
+
+		// Get a reference to node’s local transform.
+		FbxMatrix nodeTransform = sceneEvaluator->GetNodeGlobalTransform(node);
+		string name = node->GetName();
+
+		WorldCommands::UpdateSpeckRigidBodyCommand command;
+		command.movementMode = WorldCommands::RigidBodyMovementMode::CPU;
+
+		command.rigidBodyIndex = mNodesAnimData[name].index;
+		if (command.rigidBodyIndex != -1)
+		{
+			XMFLOAT4X4 worldMatrix;
+			Conv(&worldMatrix, nodeTransform);
+			XMMATRIX w = XMLoadFloat4x4(&worldMatrix);
+			XMVECTOR inverseLocalTranslation = XMLoadFloat3(&mNodesAnimData[name].centerOfMass);
+			XMVECTOR inverseLocalRotation = XMLoadFloat4(&mNodesAnimData[name].inverseRotation);
+			XMVECTOR inverseLocalScale = XMLoadFloat3(&mNodesAnimData[name].inverseScale);
+			XMMATRIX inverseLocalTransform = XMMatrixTranslationFromVector(inverseLocalTranslation) * XMMatrixRotationQuaternion(inverseLocalRotation) * XMMatrixScalingFromVector(inverseLocalScale);
+			w = XMMatrixMultiply(inverseLocalTransform, w);
+			w = XMMatrixMultiply(w, world);
+			XMVECTOR s, r, t;
+			XMMatrixDecompose(&s, &r, &t, w);
+			XMStoreFloat3(&command.transform.mT, t);
+			XMStoreFloat4(&command.transform.mR, r);
+			//XMStoreFloat3(&command.transform.mS, s);
+			GetWorld().ExecuteCommand(command);
+		}
+		int numChildren = node->GetChildCount();
+		for (int i = 0; i < numChildren; i++)
+		{
+			FbxNode *childNode = node->GetChild(i);
+			nodeStack.push_back(childNode);
+		}
+	}
 }
 
 void HumanoidSkeleton::UpdateAnimation(float time)
 {
+	// transforms the model to the world space
+	XMMATRIX modelWorld = XMLoadFloat4x4(&mWorld);
+
 	int numStacks = mScene->GetSrcObjectCount<FbxAnimStack>();
 	FbxAnimStack* pAnimStack = FbxCast<FbxAnimStack>(mScene->GetSrcObject<FbxAnimStack>(numStacks - 1));
 	FbxTimeSpan &timeSpan = pAnimStack->GetLocalTimeSpan();
@@ -819,6 +785,7 @@ void HumanoidSkeleton::UpdateAnimation(float time)
 			XMVECTOR inverseLocalScale = XMLoadFloat3(&mNodesAnimData[name].inverseScale);
 			XMMATRIX inverseLocalTransform = XMMatrixTranslationFromVector(inverseLocalTranslation) * XMMatrixRotationQuaternion(inverseLocalRotation) * XMMatrixScalingFromVector(inverseLocalScale);
 			w = XMMatrixMultiply(inverseLocalTransform, w);
+			w = XMMatrixMultiply(w, modelWorld);
 			XMVECTOR s, r, t;
 			XMMatrixDecompose(&s, &r, &t, w);
 			XMStoreFloat3(&command.transform.mT, t);

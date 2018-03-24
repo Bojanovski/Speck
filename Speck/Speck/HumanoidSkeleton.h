@@ -12,16 +12,19 @@ namespace fbxsdk
 	class FbxNode;
 	class FbxAnimLayer;
 	class FbxScene;
-	class FbxManager;
 }
+
+class FBXSceneManager;
 
 class HumanoidSkeleton : public Speck::WorldUser
 {
 public:
-	HumanoidSkeleton(Speck::World &w);
+	HumanoidSkeleton(FBXSceneManager *sceneManager, Speck::World &w);
 	~HumanoidSkeleton();
 
 	void Initialize(const wchar_t *fbxFilePath, const wchar_t *speckStructureJSON, Speck::App *pApp, bool useSkinning, bool saveFixed = false);
+	void SetWorldTransform(const DirectX::XMFLOAT4X4 &world);
+	void SetWorldTransform(DirectX::CXMMATRIX world);
 	void UpdateAnimation(float time);
 	void StartSimulation();
 
@@ -31,8 +34,8 @@ private:
 	void ProcessRenderSkin(fbxsdk::FbxNode *node, Speck::App *pApp);
 
 private:
+	FBXSceneManager *mSceneManager;
 	fbxsdk::FbxScene *mScene;
-	fbxsdk::FbxManager *mSDKManager;
 	float mSpeckRadius;
 	std::string mSpeckBodyStructureJSONFile;
 	struct NodeAnimData 
@@ -48,6 +51,7 @@ private:
 	// First parent of a node that has a rigid body, if the node does not have a rigid body already.
 	std::unordered_map < std::string, std::string > mNodesParents; 
 	enum { None, BindPose, Animating, Simulating } mState = None;
+	DirectX::XMFLOAT4X4 mWorld;
 };
 
 #endif

@@ -109,10 +109,10 @@ void main(int3 threadGroupID : SV_GroupID, int3 dispatchThreadID : SV_DispatchTh
 		if (posInBlock == 0)
 		{
 			// If this is the first speck in the rigid body, add some virtual specks to prevent rank deficiency.
+			float4x4 rbWorld = gRigidBodies[thisLink.rbIndex].world;
+			float3x3 rotW = float3x3(rbWorld[0].xyz, rbWorld[1].xyz, rbWorld[2].xyz);
 			float fac = 0.01f;
-			A += fac * GetOuterProduct(normalize(gRigidBodies[thisLink.rbIndex].world[0].xyz), float3(1.0f, 0.0f, 0.0f));
-			A += fac * GetOuterProduct(normalize(gRigidBodies[thisLink.rbIndex].world[1].xyz), float3(0.0f, 1.0f, 0.0f));
-			A += fac * GetOuterProduct(normalize(gRigidBodies[thisLink.rbIndex].world[2].xyz), float3(0.0f, 0.0f, 1.0f));
+			A += fac * transpose(rotW);
 		}
 
 		// Save the data

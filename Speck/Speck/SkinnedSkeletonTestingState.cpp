@@ -21,6 +21,7 @@ SkinnedSkeletonTestingState::SkinnedSkeletonTestingState(EngineCore &mEC)
 
 SkinnedSkeletonTestingState::~SkinnedSkeletonTestingState()
 {
+	mHumanoidSkeletons.clear();
 }
 
 void SkinnedSkeletonTestingState::Initialize()
@@ -101,7 +102,7 @@ void SkinnedSkeletonTestingState::Initialize()
 	// Generate the world
 	//
 	StaticPrimitivesGenerator staticPrimGen(GetWorld());
-	staticPrimGen.GenerateBox({ 70.0f, 5.0f, 70.0f }, "pbrMatTest", { 0.0f, -5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }); // ground
+	staticPrimGen.GenerateBox({ 170.0f, 5.0f, 170.0f }, "pbrMatTest", { 0.0f, -5.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }); // ground
 
 	// Add an env map
 	WorldCommands::AddEnviromentMapCommand cmd4;
@@ -117,8 +118,23 @@ void SkinnedSkeletonTestingState::Initialize()
 	efc.type = ExternalForces::Types::Acceleration;
 	GetWorld().ExecuteCommand(efc);
 
-	mHumanoidSkeleton = make_unique<HumanoidSkeleton>(GetWorld());
-	mHumanoidSkeleton->Initialize(L"Data/Animations/knight_idle.fbx", L"Data/Animations/knight.json", &GetApp(), true);
+	for (int i = 0; i < 25; ++i)
+	{
+		unique_ptr<HumanoidSkeleton> humSkeleton1 = make_unique<HumanoidSkeleton>(&mFBXSceneManager, GetWorld());
+		humSkeleton1->Initialize(L"Data/Animations/knight_idle.fbx", L"Data/Animations/knight.json", &GetApp(), false);
+		humSkeleton1->SetWorldTransform(XMMatrixTranslation(25.0f, 30.0f + 30.0f * i, 0.0f));
+		mHumanoidSkeletons.push_back(move(humSkeleton1));
+
+		unique_ptr<HumanoidSkeleton> humSkeleton2 = make_unique<HumanoidSkeleton>(&mFBXSceneManager, GetWorld());
+		humSkeleton2->Initialize(L"Data/Animations/knight_idle.fbx", L"Data/Animations/knight.json", &GetApp(), false);
+		humSkeleton2->SetWorldTransform(XMMatrixTranslation(0.0f, 30.0f + 30.0f * i, 0.0f));
+		mHumanoidSkeletons.push_back(move(humSkeleton2));
+
+		unique_ptr<HumanoidSkeleton> humSkeleton3 = make_unique<HumanoidSkeleton>(&mFBXSceneManager, GetWorld());
+		humSkeleton3->Initialize(L"Data/Animations/knight_idle.fbx", L"Data/Animations/knight.json", &GetApp(), false);
+		humSkeleton3->SetWorldTransform(XMMatrixTranslation(-25.0f, 30.0f + 30.0f * i, 0.0f));
+		mHumanoidSkeletons.push_back(move(humSkeleton3));
+	}
 
 	WorldCommands::SetTimeMultiplierCommand stmc;
 	stmc.timeMultiplierConstant = 1.0f;
@@ -133,6 +149,8 @@ void SkinnedSkeletonTestingState::Initialize()
 
 void SkinnedSkeletonTestingState::Update(float dt)
 {
+	static float t = 0.0f;
+
 	mCC.Update(dt);
 	AppCommands::UpdateCameraCommand ucc;
 	ucc.ccPt = &mCC;
@@ -145,18 +163,13 @@ void SkinnedSkeletonTestingState::Update(float dt)
 	cmd.text = L"    fps: " + fpsStr + L"   spf: " + mspfStr;
 	GetApp().ExecuteCommand(cmd);
 
-	static float t = 0.0f;
+	if (t > 1.0f)
+	{
+		for (auto &sk : mHumanoidSkeletons)
+			sk->StartSimulation();
+	}
+
 	t += dt;
-
-
-	if (t < 20.0f && t > 0.0f)
-	{
-		mHumanoidSkeleton->UpdateAnimation(t*1.0f);
-	}
-	else if (t > 20.0f)
-	{
-		mHumanoidSkeleton->StartSimulation();
-	}
 }
 
 void SkinnedSkeletonTestingState::Draw(float dt)

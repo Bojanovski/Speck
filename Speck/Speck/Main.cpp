@@ -72,7 +72,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 
 	try
 	{
-		return Test0(hInstance);
+		return Test2(hInstance);
 	}
 	catch (Exception &ex)
 	{

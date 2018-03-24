@@ -6,6 +6,7 @@
 #include <App.h>
 #include <FPCameraController.h>
 #include "HumanoidSkeleton.h"
+#include "FBXSceneManager.h"
 
 class SkeletonTestingState : public Speck::AppState
 {
@@ -26,6 +27,7 @@ private:
 	Speck::FPCameraController mCC;
 
 	std::unique_ptr<HumanoidSkeleton> mHumanoidSkeleton;
+	FBXSceneManager mFBXSceneManager;
 
 };
 

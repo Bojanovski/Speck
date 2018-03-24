@@ -571,7 +571,7 @@ void SpeckApp::BuildSpeckGeometry()
 {
 	auto &dxCore = GetEngineCore().GetDirectXCore();
 	GeometryGenerator gg;
-	GeometryGenerator::StaticMeshData md = gg.CreateGeosphere(SpecksHandler::GetSpeckRadius(), 3);
+	GeometryGenerator::StaticMeshData md = gg.CreateGeosphere(SpecksHandler::GetSpeckRadius(), 1);
 
 	BoundingBox bounds;
 	XMStoreFloat3(&bounds.Center, XMVectorZero());

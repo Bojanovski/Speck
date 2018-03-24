@@ -99,15 +99,15 @@ void JointShowcaseState::Initialize()
 	staticPrimGen.GenerateBox({ 270.0f, 5.0f, 270.0f }, "pbrMatTest", { 0.0f, -4.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }); // ground
 
 	SpeckPrimitivesGenerator speckPrimGen(GetWorld());
-	speckPrimGen.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::StiffJoint, { -20.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, XM_PIDIV2 });
-	speckPrimGen.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::HingeJoint, { -10.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, XM_PIDIV2 });
-	speckPrimGen.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::AsymetricHingeJoint, { 0.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, XM_PIDIV2 });
+	speckPrimGen.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::StiffJoint, { -10.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, XM_PIDIV2 });
+	speckPrimGen.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::HingeJoint, { -00.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, XM_PIDIV2 });
+	//speckPrimGen.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::AsymetricHingeJoint, { 0.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, XM_PIDIV2 });
 	speckPrimGen.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::BallAndSocket, { 10.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, XM_PIDIV2 });
 	speckPrimGen.GeneratreConstrainedRigidBodyPair(SpeckPrimitivesGenerator::ConstrainedRigidBodyPairType::UniversalJoint, { 20.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, XM_PIDIV2 });
 
-	//speckPrimGen.GenerateBox(1, 4, 4, "pbrMatTest", false, { -5.0f, 20.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
-	//speckPrimGen.GenerateBox(1, 1, 4, "pbrMatTest", false, { 0.0f, 20.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
-	//speckPrimGen.GenerateBox(4, 4, 1, "pbrMatTest", false, { 5.0f, 20.0f, 0.0f }, { 0.0f, 0.0f, 0.0f });
+	//speckPrimGen.GenerateBox(1, 4, 4, "pbrMatTest", false, { -5.0f, 20.0f, 0.0f }, { 0.0f, 0.0f, 1.0f });
+	//speckPrimGen.GenerateBox(1, 1, 4, "pbrMatTest", false, { 0.0f, 20.0f, 0.0f }, { 0.0f, 0.0f, 1.0f });
+	//speckPrimGen.GenerateBox(4, 4, 1, "pbrMatTest", false, { 5.0f, 20.0f, 0.0f }, { 0.0f, 0.0f, 1.0f });
 
 	// add gravity
 	WorldCommands::AddExternalForceCommand efc;
@@ -166,33 +166,33 @@ void JointShowcaseState::Update(float dt)
 		WorldCommands::UpdateSpeckRigidBodyCommand command;
 		command.movementMode = WorldCommands::RigidBodyMovementMode::CPU;
 		command.rigidBodyIndex = 0;
-		XMStoreFloat3(&command.transform.mT, XMVectorSet(-20.0f, 10.0f, 0.0f, 1.0f));
-		XMStoreFloat4(&command.transform.mR, XMQuaternionRotationRollPitchYaw(angle, 0, 0));
-		GetWorld().ExecuteCommand(command);
-
-		command.movementMode = WorldCommands::RigidBodyMovementMode::CPU;
-		command.rigidBodyIndex = 2;
 		XMStoreFloat3(&command.transform.mT, XMVectorSet(-10.0f, 10.0f, 0.0f, 1.0f));
 		XMStoreFloat4(&command.transform.mR, XMQuaternionRotationRollPitchYaw(angle, 0, 0));
 		GetWorld().ExecuteCommand(command);
 
 		command.movementMode = WorldCommands::RigidBodyMovementMode::CPU;
-		command.rigidBodyIndex = 4;
+		command.rigidBodyIndex = 2;
 		XMStoreFloat3(&command.transform.mT, XMVectorSet(0.0f, 10.0f, 0.0f, 1.0f));
 		XMStoreFloat4(&command.transform.mR, XMQuaternionRotationRollPitchYaw(angle, 0, 0));
 		GetWorld().ExecuteCommand(command);
 
 		command.movementMode = WorldCommands::RigidBodyMovementMode::CPU;
-		command.rigidBodyIndex = 6;
+		command.rigidBodyIndex = 4;
 		XMStoreFloat3(&command.transform.mT, XMVectorSet(10.0f, 10.0f, 0.0f, 1.0f));
 		XMStoreFloat4(&command.transform.mR, XMQuaternionRotationRollPitchYaw(angle, 0, 0));
 		GetWorld().ExecuteCommand(command);
 
 		command.movementMode = WorldCommands::RigidBodyMovementMode::CPU;
-		command.rigidBodyIndex = 8;
+		command.rigidBodyIndex = 6;
 		XMStoreFloat3(&command.transform.mT, XMVectorSet(20.0f, 10.0f, 0.0f, 1.0f));
 		XMStoreFloat4(&command.transform.mR, XMQuaternionRotationRollPitchYaw(angle, 0, 0));
 		GetWorld().ExecuteCommand(command);
+
+		//command.movementMode = WorldCommands::RigidBodyMovementMode::CPU;
+		//command.rigidBodyIndex = 8;
+		//XMStoreFloat3(&command.transform.mT, XMVectorSet(20.0f, 10.0f, 0.0f, 1.0f));
+		//XMStoreFloat4(&command.transform.mR, XMQuaternionRotationRollPitchYaw(angle, 0, 0));
+		//GetWorld().ExecuteCommand(command);
 	}
 	else
 	{

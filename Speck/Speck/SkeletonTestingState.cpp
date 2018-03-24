@@ -21,6 +21,7 @@ SkeletonTestingState::SkeletonTestingState(EngineCore &mEC)
 
 SkeletonTestingState::~SkeletonTestingState()
 {
+	mHumanoidSkeleton.reset();
 }
 
 void SkeletonTestingState::Initialize()
@@ -109,7 +110,7 @@ void SkeletonTestingState::Initialize()
 
 	WorldCommands::AddSpecksCommand asrbc;
 	asrbc.speckType = WorldCommands::SpeckType::Fluid;
-	asrbc.frictionCoefficient = 0.001f;
+	asrbc.frictionCoefficient = 0.01f;
 	asrbc.fluid.cohesionCoefficient = 0.6f;
 	asrbc.fluid.viscosityCoefficient = 0.7f;
 	asrbc.speckMass = 0.5f;
@@ -160,7 +161,7 @@ void SkeletonTestingState::Initialize()
 	efc.type = ExternalForces::Types::Acceleration;
 	GetWorld().ExecuteCommand(efc);
 
-	mHumanoidSkeleton = make_unique<HumanoidSkeleton>(GetWorld());
+	mHumanoidSkeleton = make_unique<HumanoidSkeleton>(&mFBXSceneManager, GetWorld());
 	mHumanoidSkeleton->Initialize(L"Data/Animations/knight_dancing.fbx", L"Data/Animations/knight.json", &GetApp(), false);
 
 	WorldCommands::SetTimeMultiplierCommand stmc;
@@ -176,6 +177,8 @@ void SkeletonTestingState::Initialize()
 
 void SkeletonTestingState::Update(float dt)
 {
+	static float t = 0.0f;
+
 	mCC.Update(dt);
 	AppCommands::UpdateCameraCommand ucc;
 	ucc.ccPt = &mCC;
@@ -188,9 +191,7 @@ void SkeletonTestingState::Update(float dt)
 	cmd.text = L"    fps: " + fpsStr + L"   spf: " + mspfStr;
 	GetApp().ExecuteCommand(cmd);
 
-	static float t = 0.0f;
 	t += dt;
-
 
 	if (t < 20.1f && t > 0.0f)
 	{

@@ -14,8 +14,9 @@ struct PixelOut
 {
 	float4 Color0		: SV_Target0; // color
 	float4 Color1		: SV_Target1; // normal
-	float Color2		: SV_Target2; // depth
-	float4 Color3		: SV_Target3; // PBR data
+	float4 Color2		: SV_Target2; // normal view space
+	float Color3		: SV_Target3; // depth
+	float4 Color4		: SV_Target4; // PBR data
 };
 
 PixelOut main(VertexOut pin)
@@ -26,12 +27,6 @@ PixelOut main(VertexOut pin)
 	float4 diffuseAlbedo = matData.DiffuseAlbedo;
 	float3 fresnelR0 = matData.FresnelR0;
 	float  roughness = matData.Roughness;
-	uint diffuseMapIndex = 0;
-	uint normalMapIndex = 1;
-	uint heightMapIndex = 2;
-	uint metalnessMapIndex = 3;
-	uint roughnessMapIndex = 4;
-	uint aoMapIndex = 5;
 
 	float3x3 TBN = GetTBN(pin.NormalW, pin.TangentW);
 	// Interpolating normal can unnormalize it, so renormalize it.
@@ -43,16 +38,16 @@ PixelOut main(VertexOut pin)
 	fHeightMapScale *= texTransform._m20*texTransform._m20 + texTransform._m21*texTransform._m21 + texTransform._m22*texTransform._m22;
 	float2 vFinalCoords = GetParallaxOcclusionTextureCoordinateOffset(pin.TexC, pin.PosW, pin.NormalW, fHeightMapScale, texTransform, TBN);
 
-	float4 normalMapSample = gTextureMaps[normalMapIndex].Sample(gsamAnisotropicWrap, vFinalCoords);
+	float4 normalMapSample = gTextureMaps[DEFERRED_RENDER_TARGET_NORMAL_MAP].Sample(gsamAnisotropicWrap, vFinalCoords);
 	float3 bumpedNormalW = NormalSampleToWorldSpace(normalMapSample.rgb, TBN);
 
 	// Dynamically look up the texture in the array.
-	diffuseAlbedo *= gTextureMaps[diffuseMapIndex].Sample(gsamAnisotropicWrap, vFinalCoords);
+	diffuseAlbedo *= gTextureMaps[DEFERRED_RENDER_TARGET_DIFFUSE_MAP].Sample(gsamAnisotropicWrap, vFinalCoords);
 
 	// Fetch the PBR data
-	float texMetalness = gTextureMaps[metalnessMapIndex].Sample(gsamAnisotropicWrap, vFinalCoords).r;
-	float texRoughness = gTextureMaps[roughnessMapIndex].Sample(gsamAnisotropicWrap, vFinalCoords).r;
-	float texAO = gTextureMaps[aoMapIndex].Sample(gsamAnisotropicWrap, vFinalCoords).r;
+	float texMetalness = gTextureMaps[DEFERRED_RENDER_TARGET_METALNESS_MAP].Sample(gsamAnisotropicWrap, vFinalCoords).r;
+	float texRoughness = 0.0f;// gTextureMaps[roughnessMapIndex].Sample(gsamAnisotropicWrap, vFinalCoords).r;
+	float texAO = 0.0f;// gTextureMaps[aoMapIndex].Sample(gsamAnisotropicWrap, vFinalCoords).r;
 
 	//// Vector from point being lit to eye. 
 	//float3 toEyeW = normalize(gEyePosW - pin.PosW);
@@ -77,8 +72,9 @@ PixelOut main(VertexOut pin)
 	//litColor.a = diffuseAlbedo.a;
 
 	pout.Color0 = diffuseAlbedo;
-	pout.Color1 = NormalInWorldToTextel(bumpedNormalW);
-	pout.Color2 = pin.PosH.z;
-	pout.Color3 = float4(texMetalness, texRoughness, texAO, 1.0f);
+	pout.Color1 = float4(bumpedNormalW, 0.0f);
+	pout.Color2 = mul(float4(bumpedNormalW, 0.0f), gView);
+	pout.Color3 = pin.PosH.z;
+	pout.Color4 = float4(texMetalness, texRoughness, texAO, 1.0f);
 	return pout;
 }

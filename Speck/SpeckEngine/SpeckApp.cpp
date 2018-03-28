@@ -15,7 +15,10 @@
 using Microsoft::WRL::ComPtr;
 using namespace std;
 using namespace DirectX;
+using namespace DirectX::PackedVector;
 using namespace Speck;
+
+GeometryGenerator::PointCloud gSSAOOffsetVectors;
 
 void Speck::CreateSpeckApp(HINSTANCE hInstance, float speckRadius, UINT maxNumberOfMaterials, UINT maxRenderItemsCount,
 	unique_ptr<EngineCore> *ec, unique_ptr<World> *world, unique_ptr<App> *app)
@@ -94,7 +97,11 @@ void SpeckApp::OnResize()
 	THROW_IF_FAILED(dxCore.GetCommandList()->Reset(dxCore.GetCommandAllocator(), nullptr));
 
 	// Do the (re)initialization.
+	gSSAOOffsetVectors = GeometryGenerator::CreateOffsetVectors();
 	BuildDeferredRenderTargetsAndBuffers();
+	BuildSSAORenderTargetsAndBuffers();
+	BuildRandomVectorBuffer();
+	BuildSRVs();
 
 	// Execute the resize commands.
 	THROW_IF_FAILED(dxCore.GetCommandList()->Close());
@@ -103,6 +110,9 @@ void SpeckApp::OnResize()
 
 	// Wait until resize is complete.
 	GetEngineCore().GetDirectXCore().FlushCommandQueue();
+
+	// For some buffers
+	mNumFramesDirty = NUM_FRAME_RESOURCES;
 }
 
 void SpeckApp::Update(const Timer& gt)
@@ -125,7 +135,11 @@ void SpeckApp::Update(const Timer& gt)
 	}
 
 	GetWorld().Update();
+	UpdateSSAODataBuffer(gt);
 	UpdateMaterialBuffer(gt);
+
+	// Decrease the number of dirty frames if necessary
+	if (mNumFramesDirty > 0) mNumFramesDirty--;
 }
 
 void SpeckApp::PreDrawUpdate(const Timer & gt)
@@ -195,6 +209,101 @@ void SpeckApp::Draw(const Timer& gt)
 	}
 
 	//
+	// Draw the SSAO
+	//
+	{
+		GraphicsDebuggerAnnotator gda(dxCore, "SSAO");
+		dxCore.GetCommandList()->RSSetViewports(1, &mSSAORTViewport);
+		dxCore.GetCommandList()->RSSetScissorRects(1, &mSSAORTScissorRect);
+
+		// Indicate a state transition on the resource usage.
+		dxCore.GetCommandList()->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mSSAOBuffer[mSSAOWriteBufferIndex].Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+		// Clear the render target.
+		dxCore.GetCommandList()->ClearRenderTargetView(mSSAORTVHeapHandle[mSSAOWriteBufferIndex], mSSAOBufferClearColor, 0, nullptr);
+
+		// Specify the buffers we are going to render to.
+		dxCore.GetCommandList()->OMSetRenderTargets(1, &mSSAORTVHeapHandle[mSSAOWriteBufferIndex], true, nullptr);
+
+		ID3D12DescriptorHeap* descriptorHeaps[] = { mSSAOSRVDescriptorHeap.Get() };
+		dxCore.GetCommandList()->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+		dxCore.GetCommandList()->SetGraphicsRootSignature(mSSAORootSignature.Get());
+		dxCore.GetCommandList()->SetPipelineState(mSSAOPSO.Get());
+
+		// Upload the settings constants
+		auto ssaoData = mCurrFrameResource->SSAODataBuffer->Resource();
+		dxCore.GetCommandList()->SetGraphicsRootConstantBufferView((UINT)SSAORootParameter::DataBufferRootDescriptor, ssaoData->GetGPUVirtualAddress());
+
+		// Bind all the pre rendered scene texture components used in this post process pass.
+		dxCore.GetCommandList()->SetGraphicsRootDescriptorTable((UINT)SSAORootParameter::TexturesDescriptorTable, mSSAOTextureMapsSRVHeapHandle);
+
+		auto geo = mGeometries["screenGeo"].get();
+		dxCore.GetCommandList()->IASetVertexBuffers(0, 1, &geo->VertexBufferView());
+		dxCore.GetCommandList()->IASetIndexBuffer(&geo->IndexBufferView());
+		dxCore.GetCommandList()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		auto &subMesh = geo->DrawArgs["quad"];
+		dxCore.GetCommandList()->DrawIndexedInstanced(subMesh.IndexCount, 1, subMesh.StartIndexLocation, subMesh.BaseVertexLocation, 0);
+
+		// Indicate a state transition on the resource usage.
+		dxCore.GetCommandList()->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mSSAOBuffer[mSSAOWriteBufferIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ));
+
+		// Blurring
+		dxCore.GetCommandList()->SetPipelineState(mBlurredSSAOPSO.Get());
+		for (UINT i = 0; i < mSSAOBlurringIterationCount; i++)
+		{
+			{	// Horizontal blur
+				GraphicsDebuggerAnnotator gda(dxCore, "HorizontalBlurSSAO");
+				mSSAOWriteBufferIndex = (mSSAOWriteBufferIndex + 1) % 2;
+				mSSAOReadBufferIndex = (mSSAOReadBufferIndex + 1) % 2;
+
+				// Indicate a state transition on the resource usage.
+				dxCore.GetCommandList()->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mSSAOBuffer[mSSAOWriteBufferIndex].Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+				dxCore.GetCommandList()->ClearRenderTargetView(mSSAORTVHeapHandle[mSSAOWriteBufferIndex], mSSAOBufferClearColor, 0, nullptr);
+				dxCore.GetCommandList()->OMSetRenderTargets(1, &mSSAORTVHeapHandle[mSSAOWriteBufferIndex], true, nullptr);
+
+				// Bind the appropriate previous texture.
+				dxCore.GetCommandList()->SetGraphicsRootDescriptorTable((UINT)SSAORootParameter::PreviousResultTextureDescriptorTable, mSSAOPreviousResultSRVHeapHandle[mSSAOReadBufferIndex]);
+				
+				// Upload the settings constants
+				int values[] = { 0 };
+				dxCore.GetCommandList()->SetGraphicsRoot32BitConstants((UINT)SSAORootParameter::PerPassRootConstant, _countof(values), &values, 0);
+
+				// Draw
+				dxCore.GetCommandList()->DrawIndexedInstanced(subMesh.IndexCount, 1, subMesh.StartIndexLocation, subMesh.BaseVertexLocation, 0);
+
+				// Indicate a state transition on the resource usage.
+				dxCore.GetCommandList()->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mSSAOBuffer[mSSAOWriteBufferIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ));
+			}
+
+			{	// Vertical blur
+				GraphicsDebuggerAnnotator gda(dxCore, "VerticalBlurSSAO");
+				mSSAOWriteBufferIndex = (mSSAOWriteBufferIndex + 1) % 2;
+				mSSAOReadBufferIndex = (mSSAOReadBufferIndex + 1) % 2;
+
+				// Indicate a state transition on the resource usage.
+				dxCore.GetCommandList()->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mSSAOBuffer[mSSAOWriteBufferIndex].Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+				dxCore.GetCommandList()->ClearRenderTargetView(mSSAORTVHeapHandle[mSSAOWriteBufferIndex], mSSAOBufferClearColor, 0, nullptr);
+				dxCore.GetCommandList()->OMSetRenderTargets(1, &mSSAORTVHeapHandle[mSSAOWriteBufferIndex], true, nullptr);
+
+				// Bind the appropriate previous texture.
+				dxCore.GetCommandList()->SetGraphicsRootDescriptorTable((UINT)SSAORootParameter::PreviousResultTextureDescriptorTable, mSSAOPreviousResultSRVHeapHandle[mSSAOReadBufferIndex]);
+
+				// Upload the settings constants
+				int values[] = { 1 };
+				dxCore.GetCommandList()->SetGraphicsRoot32BitConstants((UINT)SSAORootParameter::PerPassRootConstant, _countof(values), &values, 0);
+
+				// Draw
+				dxCore.GetCommandList()->DrawIndexedInstanced(subMesh.IndexCount, 1, subMesh.StartIndexLocation, subMesh.BaseVertexLocation, 0);
+
+				// Indicate a state transition on the resource usage.
+				dxCore.GetCommandList()->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mSSAOBuffer[mSSAOWriteBufferIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ));
+			}
+		}
+	}
+
+	//
 	// Draw the screen quad (postprocess)
 	//
 	{
@@ -205,24 +314,22 @@ void SpeckApp::Draw(const Timer& gt)
 		// Indicate a state transition on the resource usage.
 		dxCore.GetCommandList()->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
-		// Clear the back buffer and depth buffer.
+		// Clear the render target.
 		dxCore.GetCommandList()->ClearRenderTargetView(CurrentBackBufferView(), dxCore.GetClearRTColor(), 0, nullptr);
-		dxCore.GetCommandList()->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 
 		// Specify the buffers we are going to render to.
-		dxCore.GetCommandList()->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
-
+		dxCore.GetCommandList()->OMSetRenderTargets(1, &CurrentBackBufferView(), true, nullptr);
 
 		ID3D12DescriptorHeap* descriptorHeaps[] = { mPostProcessSrvDescriptorHeap.Get() };
 		dxCore.GetCommandList()->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 		dxCore.GetCommandList()->SetGraphicsRootSignature(mPostProcessRootSignature.Get());
-		dxCore.GetCommandList()->SetPipelineState(mScreenObjPSO.Get());
+		dxCore.GetCommandList()->SetPipelineState(mPostProcessPSO.Get());
 
 		// Upload the settings constants
 		UINT values[] = {
 			(UINT)dxCore.GetClientWidth() * mSuperSampling, (UINT)dxCore.GetClientHeight() * mSuperSampling,
 			(UINT)dxCore.GetClientWidth(), (UINT)dxCore.GetClientHeight() };
-		dxCore.GetCommandList()->SetGraphicsRoot32BitConstants((UINT)PostProcessRootParameter::SettingsRootConstant, 4, &values, 0);
+		dxCore.GetCommandList()->SetGraphicsRoot32BitConstants((UINT)PostProcessRootParameter::SettingsRootConstant, _countof(values), &values, 0);
 
 		// Bind all the pre rendered scene texture components used in this post process pass.
 		dxCore.GetCommandList()->SetGraphicsRootDescriptorTable((UINT)PostProcessRootParameter::TexturesDescriptorTable, mPostProcessSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
@@ -255,6 +362,63 @@ void SpeckApp::Draw(const Timer& gt)
 	// Because we are on the GPU timeline, the new fence point won't be 
 	// set until the GPU finishes processing all the commands prior to this Signal().
 	dxCore.GetCommandQueue()->Signal(dxCore.GetFence(), dxCore.GetCurrentFence());
+}
+
+int SpeckApp::GetRTVDescriptorCount()
+{
+	return 
+		SWAP_CHAIN_BUFFER_COUNT +
+		DEFERRED_RENDER_TARGETS_COUNT +
+		1 +	// for SSAO
+		1;	// for blurred SSAO
+}
+
+int SpeckApp::GetDSVDescriptorCount()
+{
+	// one additional for deferred render targets, because it can have a different width and height than the one on the backbuffer.
+	return 1 + 1; 
+}
+
+void SpeckApp::UpdateSSAODataBuffer(const Timer & gt)
+{
+	if (mNumFramesDirty > 0)
+	{
+		auto &dxCore = GetEngineCore().GetDirectXCore();
+		auto currSSAODataBuffer = mCurrFrameResource->SSAODataBuffer.get();
+		SSAOData data;
+
+		XMMATRIX P = GetEngineCore().GetCamera().GetProj();
+		XMMATRIX invP = XMMatrixInverse(&XMMatrixDeterminant(P), P);
+		// Transform NDC space [-1,+1]^2 to texture space [0,1]^2
+		XMMATRIX T(
+			0.5f, 0.0f, 0.0f, 0.0f,
+			0.0f, -0.5f, 0.0f, 0.0f,
+			0.0f, 0.0f, 1.0f, 0.0f,
+			0.5f, 0.5f, 0.0f, 1.0f);
+
+		XMStoreFloat4x4(&data.Proj, XMMatrixTranspose(P));
+		XMStoreFloat4x4(&data.InvProj, XMMatrixTranspose(invP));
+		XMStoreFloat4x4(&data.ProjTex, XMMatrixTranspose(P*T));
+
+		data.SSAOMapsWidth = mSSAOBufferWidth;
+		data.SSAOMapsHeight = mSSAOBufferHeight;
+		data.TextureMapsWidth = (UINT)dxCore.GetClientWidth() * mSuperSampling;
+		data.TextureMapsHeight = (UINT)dxCore.GetClientHeight() * mSuperSampling;
+
+		data.OcclusionRadius = SpecksHandler::GetSpeckRadius() * 4.0f;
+		data.OcclusionFadeStart = 0.1f;
+		data.OcclusionFadeEnd = SpecksHandler::GetSpeckRadius() * 2.0f;
+		data.SurfaceEpsilon = 0.05f;
+
+		memcpy(data.OffsetVectors, gSSAOOffsetVectors.Positions.data(), SSAO_RANDOM_SAMPLES_N*sizeof(XMFLOAT4));
+
+		auto blurWeights = CalcGaussWeights(2.5f);
+		data.BlurWeights[0] = XMFLOAT4(&blurWeights[0]);
+		data.BlurWeights[1] = XMFLOAT4(&blurWeights[4]);
+		data.BlurWeights[2] = XMFLOAT4(&blurWeights[8]);
+
+		currSSAODataBuffer->CopyData(0, data);
+	}
 }
 
 void SpeckApp::UpdateMaterialBuffer(const Timer& gt)
@@ -454,7 +618,6 @@ void SpeckApp::BuildRootSignatures()
 
 	auto staticSamplers = GetStaticSamplers();
 
-	// A root signature is an array of root parameters.
 	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc((UINT)MainPassRootParameter::Count, slotRootParameter, (UINT)staticSamplers.size(), staticSamplers.data(),
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
@@ -476,17 +639,6 @@ void SpeckApp::BuildRootSignatures()
 		serializedRootSig->GetBufferSize(),
 		IID_PPV_ARGS(mRootSignature.GetAddressOf())));
 
-	//
-	// Post process signature
-	//
-	CD3DX12_DESCRIPTOR_RANGE texTablePostProcess;
-	texTablePostProcess.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, DEFERRED_RENDER_TARGETS_COUNT, 0, 0);
-	// Root parameter can be a table, root descriptor or root constants.
-	CD3DX12_ROOT_PARAMETER slotRootParameterPostProcess[(UINT)PostProcessRootParameter::Count];
-	// Perfomance TIP: Order from most frequent to least frequent.
-	slotRootParameterPostProcess[(UINT)PostProcessRootParameter::SettingsRootConstant].InitAsConstants(4, 0, 0);															// root constant (for settings)
-	slotRootParameterPostProcess[(UINT)PostProcessRootParameter::TexturesDescriptorTable].InitAsDescriptorTable(1, &texTablePostProcess, D3D12_SHADER_VISIBILITY_PIXEL);	// descriptor table (for textures)
-
 	const CD3DX12_STATIC_SAMPLER_DESC pointClamp(
 		0, // shaderRegister
 		D3D12_FILTER_MIN_MAG_MIP_POINT, // filter
@@ -494,27 +646,84 @@ void SpeckApp::BuildRootSignatures()
 		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressV
 		D3D12_TEXTURE_ADDRESS_MODE_CLAMP); // addressW
 
-	// A root signature is an array of root parameters.
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDescPostProcess((UINT)PostProcessRootParameter::Count, slotRootParameterPostProcess, 1, &pointClamp,
-		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	const CD3DX12_STATIC_SAMPLER_DESC linearWrap(
+		1, // shaderRegister
+		D3D12_FILTER_MIN_MAG_MIP_LINEAR, // filter
+		D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressU
+		D3D12_TEXTURE_ADDRESS_MODE_WRAP,  // addressV
+		D3D12_TEXTURE_ADDRESS_MODE_WRAP); // addressW
 
-	// create a root signature with a single slot which points to a descriptor range consisting of a single constant buffer
-	serializedRootSig = nullptr;
-	errorBlob = nullptr;
-	hr = D3D12SerializeRootSignature(&rootSigDescPostProcess, D3D_ROOT_SIGNATURE_VERSION_1,
-		serializedRootSig.GetAddressOf(), errorBlob.GetAddressOf());
-
-	if (errorBlob != nullptr)
+	// SSAO signature
 	{
-		::OutputDebugStringA((char*)errorBlob->GetBufferPointer());
-	}
-	THROW_IF_FAILED(hr);
+		CD3DX12_DESCRIPTOR_RANGE texTableSSAO_0;
+		texTableSSAO_0.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0);
 
-	THROW_IF_FAILED(dxCore.GetDevice()->CreateRootSignature(
-		0,
-		serializedRootSig->GetBufferPointer(),
-		serializedRootSig->GetBufferSize(),
-		IID_PPV_ARGS(mPostProcessRootSignature.GetAddressOf())));
+		CD3DX12_DESCRIPTOR_RANGE texTableSSAO_1;
+		texTableSSAO_1.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, SSAO_INPUT_TEXTURE_COUNT, 0, 1);
+		
+		// Root parameter can be a table, root descriptor or root constants.
+		CD3DX12_ROOT_PARAMETER slotRootParameterSSAO[(UINT)SSAORootParameter::Count];
+		// Perfomance TIP: Order from most frequent to least frequent.
+		slotRootParameterSSAO[(UINT)SSAORootParameter::PreviousResultTextureDescriptorTable].InitAsDescriptorTable(1, &texTableSSAO_0, D3D12_SHADER_VISIBILITY_PIXEL);		// descriptor table (for input texture)
+		slotRootParameterSSAO[(UINT)SSAORootParameter::PerPassRootConstant].InitAsConstants(1, 1);																			// root constant (for per-pass constants)
+		slotRootParameterSSAO[(UINT)SSAORootParameter::DataBufferRootDescriptor].InitAsConstantBufferView(0);																// root descriptor (for settings)
+		slotRootParameterSSAO[(UINT)SSAORootParameter::TexturesDescriptorTable].InitAsDescriptorTable(1, &texTableSSAO_1, D3D12_SHADER_VISIBILITY_PIXEL);					// descriptor table (for textures)
+
+		CD3DX12_STATIC_SAMPLER_DESC samplers[] = { pointClamp , linearWrap };
+		CD3DX12_ROOT_SIGNATURE_DESC rootSigDescSSAO((UINT)SSAORootParameter::Count, slotRootParameterSSAO, _countof(samplers), samplers,
+			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+		// create a root signature with a single slot which points to a descriptor range consisting of a single constant buffer
+		serializedRootSig = nullptr;
+		errorBlob = nullptr;
+		hr = D3D12SerializeRootSignature(&rootSigDescSSAO, D3D_ROOT_SIGNATURE_VERSION_1,
+			serializedRootSig.GetAddressOf(), errorBlob.GetAddressOf());
+
+		if (errorBlob != nullptr)
+		{
+			::OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+		}
+		THROW_IF_FAILED(hr);
+
+		THROW_IF_FAILED(dxCore.GetDevice()->CreateRootSignature(
+			0,
+			serializedRootSig->GetBufferPointer(),
+			serializedRootSig->GetBufferSize(),
+			IID_PPV_ARGS(mSSAORootSignature.GetAddressOf())));
+	}
+
+	// Post process signature
+	{
+		CD3DX12_DESCRIPTOR_RANGE texTablePostProcess;
+		texTablePostProcess.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, POST_PROCESS_INPUT_TEXTURE_COUNT, 0, 0);
+		// Root parameter can be a table, root descriptor or root constants.
+		CD3DX12_ROOT_PARAMETER slotRootParameterPostProcess[(UINT)PostProcessRootParameter::Count];
+		// Perfomance TIP: Order from most frequent to least frequent.
+		slotRootParameterPostProcess[(UINT)PostProcessRootParameter::SettingsRootConstant].InitAsConstants(4, 0, 0);															// root constant (for settings)
+		slotRootParameterPostProcess[(UINT)PostProcessRootParameter::TexturesDescriptorTable].InitAsDescriptorTable(1, &texTablePostProcess, D3D12_SHADER_VISIBILITY_PIXEL);	// descriptor table (for textures)
+
+		CD3DX12_STATIC_SAMPLER_DESC samplers[] = { pointClamp , linearWrap };
+		CD3DX12_ROOT_SIGNATURE_DESC rootSigDescPostProcess((UINT)PostProcessRootParameter::Count, slotRootParameterPostProcess, _countof(samplers), samplers,
+			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+		// create a root signature with a single slot which points to a descriptor range consisting of a single constant buffer
+		serializedRootSig = nullptr;
+		errorBlob = nullptr;
+		hr = D3D12SerializeRootSignature(&rootSigDescPostProcess, D3D_ROOT_SIGNATURE_VERSION_1,
+			serializedRootSig.GetAddressOf(), errorBlob.GetAddressOf());
+
+		if (errorBlob != nullptr)
+		{
+			::OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+		}
+		THROW_IF_FAILED(hr);
+
+		THROW_IF_FAILED(dxCore.GetDevice()->CreateRootSignature(
+			0,
+			serializedRootSig->GetBufferPointer(),
+			serializedRootSig->GetBufferSize(),
+			IID_PPV_ARGS(mPostProcessRootSignature.GetAddressOf())));
+	}
 }
 
 void SpeckApp::BuildScreenGeometry()
@@ -571,7 +780,7 @@ void SpeckApp::BuildSpeckGeometry()
 {
 	auto &dxCore = GetEngineCore().GetDirectXCore();
 	GeometryGenerator gg;
-	GeometryGenerator::StaticMeshData md = gg.CreateGeosphere(SpecksHandler::GetSpeckRadius(), 1);
+	GeometryGenerator::StaticMeshData md = gg.CreateGeosphere(SpecksHandler::GetSpeckRadius(), 3);
 
 	BoundingBox bounds;
 	XMStoreFloat3(&bounds.Center, XMVectorZero());
@@ -746,9 +955,19 @@ void SpeckApp::BuildPSOs()
 	auto &sWorld = static_cast<SpeckWorld &>(GetWorld());
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc;
 
+	//
 	// Load CS shaders
-	UINT resArray[] = { RT_SPECK_VS, RT_SPECK_PS, RT_DEFFERED_ASSEMBLER_VS, RT_DEFFERED_ASSEMBLER_PS, RT_STATIC_MESH_VS, RT_STATIC_MESH_PS, RT_SKINNED_MESH_VS };
-	char *keyArray[] = { "speckVS", "speckPS", "defferedAssemblerVS", "defferedAssemblerPS", "staticMeshVS", "staticMeshPS", "skinnedMeshVS" };
+	//
+	UINT resArray[] = {
+		RT_SPECK_VS, RT_SPECK_PS,
+		RT_DEFFERED_ASSEMBLER_VS, RT_DEFFERED_ASSEMBLER_PS,
+		RT_SSAO_VS, RT_SSAO_PS, RT_SSAO_BLUR_PS,
+		RT_STATIC_MESH_VS, RT_STATIC_MESH_PS, RT_SKINNED_MESH_VS };
+	char *keyArray[] = {
+		"speckVS", "speckPS",
+		"defferedAssemblerVS", "defferedAssemblerPS",
+		"SSAOVS", "SSAOPS", "SSAOBlurPS",
+		"staticMeshVS", "staticMeshPS", "skinnedMeshVS" };
 	const UINT numOfShaders = _countof(resArray);
 	HMODULE hMod = LoadLibraryEx(ENGINE_LIBRARY_NAME, NULL, LOAD_LIBRARY_AS_DATAFILE);
 	HRSRC hRes;
@@ -775,130 +994,197 @@ void SpeckApp::BuildPSOs()
 		FreeLibrary(hMod);
 	}
 
-	//
-	// PSO for screen quad.
-	//
-	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	vector<D3D12_INPUT_ELEMENT_DESC> inputLayout =
-	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-	};
-	psoDesc.InputLayout = { inputLayout.data(), (UINT)inputLayout.size() };
-	psoDesc.pRootSignature = mPostProcessRootSignature.Get();
-	psoDesc.VS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["defferedAssemblerVS"]->GetBufferPointer()), mShaders["defferedAssemblerVS"]->GetBufferSize()
-	};
-	psoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["defferedAssemblerPS"]->GetBufferPointer()), mShaders["defferedAssemblerPS"]->GetBufferSize()
-	};
-	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-	psoDesc.SampleMask = UINT_MAX;
-	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	psoDesc.NumRenderTargets = 1;
-	psoDesc.RTVFormats[0] = dxCore.GetBackBufferFormat();
-	psoDesc.SampleDesc.Count = dxCore.Get4xMsaaState() ? 4 : 1;
-	psoDesc.SampleDesc.Quality = dxCore.Get4xMsaaState() ? (dxCore.Get4xMsaaQuality() - 1) : 0;
-	psoDesc.DSVFormat = dxCore.GetDepthStencilFormat();
-	THROW_IF_FAILED(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mScreenObjPSO)));
+	vector<D3D12_INPUT_ELEMENT_DESC> inputLayout;
 
-	//
+	// PSO for post process.
+	{
+		ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+		inputLayout =
+		{
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		};
+		psoDesc.InputLayout = { inputLayout.data(), (UINT)inputLayout.size() };
+		psoDesc.pRootSignature = mPostProcessRootSignature.Get();
+		psoDesc.VS =
+		{
+			reinterpret_cast<BYTE*>(mShaders["defferedAssemblerVS"]->GetBufferPointer()), mShaders["defferedAssemblerVS"]->GetBufferSize()
+		};
+		psoDesc.PS =
+		{
+			reinterpret_cast<BYTE*>(mShaders["defferedAssemblerPS"]->GetBufferPointer()), mShaders["defferedAssemblerPS"]->GetBufferSize()
+		};
+		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+		psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+		psoDesc.DepthStencilState.DepthEnable = false;
+		psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+		psoDesc.SampleMask = UINT_MAX;
+		psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		psoDesc.NumRenderTargets = 1;
+		psoDesc.RTVFormats[0] = dxCore.GetBackBufferFormat();
+		psoDesc.SampleDesc.Count = dxCore.Get4xMsaaState() ? 4 : 1;
+		psoDesc.SampleDesc.Quality = dxCore.Get4xMsaaState() ? (dxCore.Get4xMsaaQuality() - 1) : 0;
+		psoDesc.DSVFormat = dxCore.GetDepthStencilFormat();
+		THROW_IF_FAILED(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPostProcessPSO)));
+	}
+
+	// PSO for SSAO.
+	{
+		ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+		inputLayout =
+		{
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		};
+		psoDesc.InputLayout = { inputLayout.data(), (UINT)inputLayout.size() };
+		psoDesc.pRootSignature = mSSAORootSignature.Get();
+		psoDesc.VS =
+		{
+			reinterpret_cast<BYTE*>(mShaders["SSAOVS"]->GetBufferPointer()), mShaders["SSAOVS"]->GetBufferSize()
+		};
+		psoDesc.PS =
+		{
+			reinterpret_cast<BYTE*>(mShaders["SSAOPS"]->GetBufferPointer()), mShaders["SSAOPS"]->GetBufferSize()
+		};
+		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+		psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+		psoDesc.DepthStencilState.DepthEnable = false;
+		psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+		psoDesc.SampleMask = UINT_MAX;
+		psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		psoDesc.NumRenderTargets = 1;
+		psoDesc.RTVFormats[0] = mSSAOBufferFormat;
+		psoDesc.SampleDesc.Count = dxCore.Get4xMsaaState() ? 4 : 1;
+		psoDesc.SampleDesc.Quality = dxCore.Get4xMsaaState() ? (dxCore.Get4xMsaaQuality() - 1) : 0;
+		psoDesc.DSVFormat = dxCore.GetDepthStencilFormat();
+		THROW_IF_FAILED(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mSSAOPSO)));
+	}
+
+	// PSO for Blurred SSAO.
+	{
+		ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+		inputLayout =
+		{
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		};
+		psoDesc.InputLayout = { inputLayout.data(), (UINT)inputLayout.size() };
+		psoDesc.pRootSignature = mSSAORootSignature.Get();
+		psoDesc.VS =
+		{
+			reinterpret_cast<BYTE*>(mShaders["SSAOVS"]->GetBufferPointer()), mShaders["SSAOVS"]->GetBufferSize()
+		};
+		psoDesc.PS =
+		{
+			reinterpret_cast<BYTE*>(mShaders["SSAOBlurPS"]->GetBufferPointer()), mShaders["SSAOBlurPS"]->GetBufferSize()
+		};
+		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+		psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+		psoDesc.DepthStencilState.DepthEnable = false;
+		psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+		psoDesc.SampleMask = UINT_MAX;
+		psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		psoDesc.NumRenderTargets = 1;
+		psoDesc.RTVFormats[0] = mSSAOBufferFormat;
+		psoDesc.SampleDesc.Count = dxCore.Get4xMsaaState() ? 4 : 1;
+		psoDesc.SampleDesc.Quality = dxCore.Get4xMsaaState() ? (dxCore.Get4xMsaaQuality() - 1) : 0;
+		psoDesc.DSVFormat = dxCore.GetDepthStencilFormat();
+		THROW_IF_FAILED(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mBlurredSSAOPSO)));
+	}
+
 	// PSO for instanced objects.
-	//
-	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	inputLayout =
 	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-	};
-	psoDesc.InputLayout = { inputLayout.data(), (UINT)inputLayout.size() };
-	psoDesc.pRootSignature = mRootSignature.Get();
-	psoDesc.VS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["speckVS"]->GetBufferPointer()), mShaders["speckVS"]->GetBufferSize()
-	};
-	psoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["speckPS"]->GetBufferPointer()), mShaders["speckPS"]->GetBufferSize()
-	};
-	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-	psoDesc.SampleMask = UINT_MAX;
-	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	psoDesc.NumRenderTargets = DEFERRED_RENDER_TARGETS_COUNT;
-	for (int i = 0; i < DEFERRED_RENDER_TARGETS_COUNT; ++i)
-	{
-		psoDesc.RTVFormats[i] = mDeferredRTFormats[i];
+		ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+		inputLayout =
+		{
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		};
+		psoDesc.InputLayout = { inputLayout.data(), (UINT)inputLayout.size() };
+		psoDesc.pRootSignature = mRootSignature.Get();
+		psoDesc.VS =
+		{
+			reinterpret_cast<BYTE*>(mShaders["speckVS"]->GetBufferPointer()), mShaders["speckVS"]->GetBufferSize()
+		};
+		psoDesc.PS =
+		{
+			reinterpret_cast<BYTE*>(mShaders["speckPS"]->GetBufferPointer()), mShaders["speckPS"]->GetBufferSize()
+		};
+		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+		psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+		psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+		psoDesc.SampleMask = UINT_MAX;
+		psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		psoDesc.NumRenderTargets = DEFERRED_RENDER_TARGETS_COUNT;
+		for (int i = 0; i < DEFERRED_RENDER_TARGETS_COUNT; ++i)
+		{
+			psoDesc.RTVFormats[i] = mDeferredRTFormats[i];
+		}
+		psoDesc.SampleDesc.Count = dxCore.Get4xMsaaState() ? 4 : 1;
+		psoDesc.SampleDesc.Quality = dxCore.Get4xMsaaState() ? (dxCore.Get4xMsaaQuality() - 1) : 0;
+		psoDesc.DSVFormat = dxCore.GetDepthStencilFormat();
+		THROW_IF_FAILED(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&sWorld.mPSOGroups["instanced"]->mPSO)));
 	}
-	psoDesc.SampleDesc.Count = dxCore.Get4xMsaaState() ? 4 : 1;
-	psoDesc.SampleDesc.Quality = dxCore.Get4xMsaaState() ? (dxCore.Get4xMsaaQuality() - 1) : 0;
-	psoDesc.DSVFormat = dxCore.GetDepthStencilFormat();
-	THROW_IF_FAILED(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&sWorld.mPSOGroups["instanced"]->mPSO)));
 
-	//
 	// PSO for static mesh objects.
-	//
-	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	GeometryGenerator::StaticVertex::GetInputLayout(&inputLayout);
-	psoDesc.InputLayout = { inputLayout.data(), (UINT)inputLayout.size() };
-	psoDesc.pRootSignature = mRootSignature.Get();
-	psoDesc.VS =
 	{
-		reinterpret_cast<BYTE*>(mShaders["staticMeshVS"]->GetBufferPointer()), mShaders["staticMeshVS"]->GetBufferSize()
-	};
-	psoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["staticMeshPS"]->GetBufferPointer()), mShaders["staticMeshPS"]->GetBufferSize()
-	};
-	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-	psoDesc.SampleMask = UINT_MAX;
-	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	psoDesc.NumRenderTargets = DEFERRED_RENDER_TARGETS_COUNT;
-	for (int i = 0; i < DEFERRED_RENDER_TARGETS_COUNT; ++i)
-	{
-		psoDesc.RTVFormats[i] = mDeferredRTFormats[i];
+		ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+		GeometryGenerator::StaticVertex::GetInputLayout(&inputLayout);
+		psoDesc.InputLayout = { inputLayout.data(), (UINT)inputLayout.size() };
+		psoDesc.pRootSignature = mRootSignature.Get();
+		psoDesc.VS =
+		{
+			reinterpret_cast<BYTE*>(mShaders["staticMeshVS"]->GetBufferPointer()), mShaders["staticMeshVS"]->GetBufferSize()
+		};
+		psoDesc.PS =
+		{
+			reinterpret_cast<BYTE*>(mShaders["staticMeshPS"]->GetBufferPointer()), mShaders["staticMeshPS"]->GetBufferSize()
+		};
+		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+		psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+		psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+		psoDesc.SampleMask = UINT_MAX;
+		psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		psoDesc.NumRenderTargets = DEFERRED_RENDER_TARGETS_COUNT;
+		for (int i = 0; i < DEFERRED_RENDER_TARGETS_COUNT; ++i)
+		{
+			psoDesc.RTVFormats[i] = mDeferredRTFormats[i];
+		}
+		psoDesc.SampleDesc.Count = dxCore.Get4xMsaaState() ? 4 : 1;
+		psoDesc.SampleDesc.Quality = dxCore.Get4xMsaaState() ? (dxCore.Get4xMsaaQuality() - 1) : 0;
+		psoDesc.DSVFormat = dxCore.GetDepthStencilFormat();
+		THROW_IF_FAILED(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&sWorld.mPSOGroups["static"]->mPSO)));
 	}
-	psoDesc.SampleDesc.Count = dxCore.Get4xMsaaState() ? 4 : 1;
-	psoDesc.SampleDesc.Quality = dxCore.Get4xMsaaState() ? (dxCore.Get4xMsaaQuality() - 1) : 0;
-	psoDesc.DSVFormat = dxCore.GetDepthStencilFormat();
-	THROW_IF_FAILED(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&sWorld.mPSOGroups["static"]->mPSO)));
 
-	//
 	// PSO for skinned mesh objects (skeletal body).
-	//
-	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	GeometryGenerator::SkinnedVertex::GetInputLayout(&inputLayout);
-	psoDesc.InputLayout = { inputLayout.data(), (UINT)inputLayout.size() };
-	psoDesc.pRootSignature = mRootSignature.Get();
-	psoDesc.VS =
 	{
-		reinterpret_cast<BYTE*>(mShaders["skinnedMeshVS"]->GetBufferPointer()), mShaders["skinnedMeshVS"]->GetBufferSize()
-	};
-	psoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mShaders["staticMeshPS"]->GetBufferPointer()), mShaders["staticMeshPS"]->GetBufferSize()
-	};
-	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-	psoDesc.SampleMask = UINT_MAX;
-	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	psoDesc.NumRenderTargets = DEFERRED_RENDER_TARGETS_COUNT;
-	for (int i = 0; i < DEFERRED_RENDER_TARGETS_COUNT; ++i)
-	{
-		psoDesc.RTVFormats[i] = mDeferredRTFormats[i];
+		ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+		GeometryGenerator::SkinnedVertex::GetInputLayout(&inputLayout);
+		psoDesc.InputLayout = { inputLayout.data(), (UINT)inputLayout.size() };
+		psoDesc.pRootSignature = mRootSignature.Get();
+		psoDesc.VS =
+		{
+			reinterpret_cast<BYTE*>(mShaders["skinnedMeshVS"]->GetBufferPointer()), mShaders["skinnedMeshVS"]->GetBufferSize()
+		};
+		psoDesc.PS =
+		{
+			reinterpret_cast<BYTE*>(mShaders["staticMeshPS"]->GetBufferPointer()), mShaders["staticMeshPS"]->GetBufferSize()
+		};
+		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+		psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+		psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+		psoDesc.SampleMask = UINT_MAX;
+		psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		psoDesc.NumRenderTargets = DEFERRED_RENDER_TARGETS_COUNT;
+		for (int i = 0; i < DEFERRED_RENDER_TARGETS_COUNT; ++i)
+		{
+			psoDesc.RTVFormats[i] = mDeferredRTFormats[i];
+		}
+		psoDesc.SampleDesc.Count = dxCore.Get4xMsaaState() ? 4 : 1;
+		psoDesc.SampleDesc.Quality = dxCore.Get4xMsaaState() ? (dxCore.Get4xMsaaQuality() - 1) : 0;
+		psoDesc.DSVFormat = dxCore.GetDepthStencilFormat();
+		THROW_IF_FAILED(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&sWorld.mPSOGroups["skeletalBody"]->mPSO)));
 	}
-	psoDesc.SampleDesc.Count = dxCore.Get4xMsaaState() ? 4 : 1;
-	psoDesc.SampleDesc.Quality = dxCore.Get4xMsaaState() ? (dxCore.Get4xMsaaQuality() - 1) : 0;
-	psoDesc.DSVFormat = dxCore.GetDepthStencilFormat();
-	THROW_IF_FAILED(dxCore.GetDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&sWorld.mPSOGroups["skeletalBody"]->mPSO)));
 }
 
 void SpeckApp::BuildFrameResources()
@@ -962,16 +1248,20 @@ void SpeckApp::BuildDeferredRenderTargetsAndBuffers()
 	GetEngineCore().GetDirectXCore().GetCommandList()->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mDeferredDepthStencilBuffer.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE));
 
 	// Define the formats
-	mDeferredRTFormats[0] = dxCore.GetBackBufferFormat();	// diffuse map format
-	mDeferredRTFormats[1] = DXGI_FORMAT_R8G8B8A8_UNORM;		// normal map format
-	mDeferredRTFormats[2] = DXGI_FORMAT_R32_FLOAT;			// depth map format
-	mDeferredRTFormats[3] = DXGI_FORMAT_R8G8B8A8_UNORM;		// PBR data map format
+	mDeferredRTFormats[0] = dxCore.GetBackBufferFormat();		// diffuse map format
+	mDeferredRTFormats[1] = DXGI_FORMAT_R16G16B16A16_FLOAT;		// normal map format
+	mDeferredRTFormats[2] = DXGI_FORMAT_R16G16B16A16_FLOAT;		// normal view space map format
+	mDeferredRTFormats[3] = DXGI_FORMAT_R32_FLOAT;				// depth map format
+	mDeferredRTFormats[4] = DXGI_FORMAT_R8G8B8A8_UNORM;			// PBR data map format
 
 	// Define the clear colors.
 	mDeferredRTClearColors[0] = dxCore.GetClearRTColor();	// diffuse map color
 	mDeferredRTClearColors[1] = DirectX::Colors::Black;		// normal map color
-	mDeferredRTClearColors[2] = DirectX::Colors::Red;		// depth map color
-	mDeferredRTClearColors[3] = DirectX::Colors::Black;		// PBR data map color
+	mDeferredRTClearColors[2] = DirectX::Colors::Black;		// normal view space map color
+	mDeferredRTClearColors[3] = DirectX::Colors::Red;		// depth map color
+	mDeferredRTClearColors[4] = DirectX::Colors::Black;		// PBR data map color
+
+	D3D12_CLEAR_VALUE optClear;
 
 	// Diffuse albedo render-to-texture creation.
 	D3D12_RESOURCE_DESC diffuseTexDesc;
@@ -982,22 +1272,21 @@ void SpeckApp::BuildDeferredRenderTargetsAndBuffers()
 	diffuseTexDesc.Height = height;
 	diffuseTexDesc.DepthOrArraySize = 1;
 	diffuseTexDesc.MipLevels = 0;
-	diffuseTexDesc.Format = mDeferredRTFormats[0];
+	diffuseTexDesc.Format = mDeferredRTFormats[DEFERRED_RENDER_TARGET_DIFFUSE_MAP];
 	diffuseTexDesc.SampleDesc.Count = 1;
 	diffuseTexDesc.SampleDesc.Quality = 0;
 	diffuseTexDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	diffuseTexDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-	D3D12_CLEAR_VALUE optClear1;
-	optClear1.Format = diffuseTexDesc.Format;
-	memcpy(optClear1.Color, mDeferredRTClearColors[0], sizeof(XMVECTORF32));
-	GetEngineCore().GetDirectXCore().GetClearRTColor(optClear1.Color);
+	optClear.Format = diffuseTexDesc.Format;
+	memcpy(optClear.Color, mDeferredRTClearColors[DEFERRED_RENDER_TARGET_DIFFUSE_MAP], sizeof(XMVECTORF32));
+	GetEngineCore().GetDirectXCore().GetClearRTColor(optClear.Color);
 	THROW_IF_FAILED(device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&diffuseTexDesc,
 		D3D12_RESOURCE_STATE_GENERIC_READ,
-		&optClear1,
-		IID_PPV_ARGS(&mDeferredRTBs[0])));
+		&optClear,
+		IID_PPV_ARGS(&mDeferredRTBs[DEFERRED_RENDER_TARGET_DIFFUSE_MAP])));
 
 	// Normal render-to-texture creation.
 	D3D12_RESOURCE_DESC normalTexDesc;
@@ -1008,21 +1297,44 @@ void SpeckApp::BuildDeferredRenderTargetsAndBuffers()
 	normalTexDesc.Height = height;
 	normalTexDesc.DepthOrArraySize = 1;
 	normalTexDesc.MipLevels = 0;
-	normalTexDesc.Format = mDeferredRTFormats[1];
+	normalTexDesc.Format = mDeferredRTFormats[DEFERRED_RENDER_TARGET_NORMAL_MAP];
 	normalTexDesc.SampleDesc.Count = 1;
 	normalTexDesc.SampleDesc.Quality = 0;
 	normalTexDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	normalTexDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-	D3D12_CLEAR_VALUE optClear2;
-	optClear2.Format = normalTexDesc.Format;
-	memcpy(optClear2.Color, mDeferredRTClearColors[1], sizeof(XMVECTORF32));
+	optClear.Format = normalTexDesc.Format;
+	memcpy(optClear.Color, mDeferredRTClearColors[DEFERRED_RENDER_TARGET_NORMAL_MAP], sizeof(XMVECTORF32));
 	THROW_IF_FAILED(device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&normalTexDesc,
 		D3D12_RESOURCE_STATE_GENERIC_READ,
-		&optClear2,
-		IID_PPV_ARGS(&mDeferredRTBs[1])));
+		&optClear,
+		IID_PPV_ARGS(&mDeferredRTBs[DEFERRED_RENDER_TARGET_NORMAL_MAP])));
+
+	// Normal view space render-to-texture creation.
+	D3D12_RESOURCE_DESC normalViewSpaceTexDesc;
+	ZeroMemory(&normalViewSpaceTexDesc, sizeof(D3D12_RESOURCE_DESC));
+	normalViewSpaceTexDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	normalViewSpaceTexDesc.Alignment = 0;
+	normalViewSpaceTexDesc.Width = width;
+	normalViewSpaceTexDesc.Height = height;
+	normalViewSpaceTexDesc.DepthOrArraySize = 1;
+	normalViewSpaceTexDesc.MipLevels = 0;
+	normalViewSpaceTexDesc.Format = mDeferredRTFormats[DEFERRED_RENDER_TARGET_NORMAL_VIEW_SPACE_MAP];
+	normalViewSpaceTexDesc.SampleDesc.Count = 1;
+	normalViewSpaceTexDesc.SampleDesc.Quality = 0;
+	normalViewSpaceTexDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	normalViewSpaceTexDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+	optClear.Format = normalViewSpaceTexDesc.Format;
+	memcpy(optClear.Color, mDeferredRTClearColors[DEFERRED_RENDER_TARGET_NORMAL_VIEW_SPACE_MAP], sizeof(XMVECTORF32));
+	THROW_IF_FAILED(device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		D3D12_HEAP_FLAG_NONE,
+		&normalViewSpaceTexDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		&optClear,
+		IID_PPV_ARGS(&mDeferredRTBs[DEFERRED_RENDER_TARGET_NORMAL_VIEW_SPACE_MAP])));
 
 	// Depth render-to-texture creation.
 	D3D12_RESOURCE_DESC depthTexDesc;
@@ -1033,21 +1345,20 @@ void SpeckApp::BuildDeferredRenderTargetsAndBuffers()
 	depthTexDesc.Height = height;
 	depthTexDesc.DepthOrArraySize = 1;
 	depthTexDesc.MipLevels = 0;
-	depthTexDesc.Format = mDeferredRTFormats[2];
+	depthTexDesc.Format = mDeferredRTFormats[DEFERRED_RENDER_TARGET_DEPTH_MAP];
 	depthTexDesc.SampleDesc.Count = 1;
 	depthTexDesc.SampleDesc.Quality = 0;
 	depthTexDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	depthTexDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-	D3D12_CLEAR_VALUE optClear3;
-	optClear3.Format = depthTexDesc.Format;
-	memcpy(optClear3.Color, mDeferredRTClearColors[2], sizeof(XMVECTORF32));
+	optClear.Format = depthTexDesc.Format;
+	memcpy(optClear.Color, mDeferredRTClearColors[DEFERRED_RENDER_TARGET_DEPTH_MAP], sizeof(XMVECTORF32));
 	THROW_IF_FAILED(device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&depthTexDesc,
 		D3D12_RESOURCE_STATE_GENERIC_READ,
-		&optClear3,
-		IID_PPV_ARGS(&mDeferredRTBs[2])));
+		&optClear,
+		IID_PPV_ARGS(&mDeferredRTBs[DEFERRED_RENDER_TARGET_DEPTH_MAP])));
 
 	// PBR data render-to-texture creation.
 	D3D12_RESOURCE_DESC pbrDataTexDesc;
@@ -1058,21 +1369,20 @@ void SpeckApp::BuildDeferredRenderTargetsAndBuffers()
 	pbrDataTexDesc.Height = height;
 	pbrDataTexDesc.DepthOrArraySize = 1;
 	pbrDataTexDesc.MipLevels = 0;
-	pbrDataTexDesc.Format = mDeferredRTFormats[3];
+	pbrDataTexDesc.Format = mDeferredRTFormats[DEFERRED_RENDER_TARGET_METALNESS_MAP];
 	pbrDataTexDesc.SampleDesc.Count = 1;
 	pbrDataTexDesc.SampleDesc.Quality = 0;
 	pbrDataTexDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	pbrDataTexDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-	D3D12_CLEAR_VALUE optClear4;
-	optClear4.Format = pbrDataTexDesc.Format;
-	memcpy(optClear4.Color, mDeferredRTClearColors[3], sizeof(XMVECTORF32));
+	optClear.Format = pbrDataTexDesc.Format;
+	memcpy(optClear.Color, mDeferredRTClearColors[DEFERRED_RENDER_TARGET_METALNESS_MAP], sizeof(XMVECTORF32));
 	THROW_IF_FAILED(device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&pbrDataTexDesc,
 		D3D12_RESOURCE_STATE_GENERIC_READ,
-		&optClear4,
-		IID_PPV_ARGS(&mDeferredRTBs[3])));
+		&optClear,
+		IID_PPV_ARGS(&mDeferredRTBs[DEFERRED_RENDER_TARGET_METALNESS_MAP])));
 
 	// Render target views
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHeapHandle(dxCore.Get_CPU_RTV_HeapStart());
@@ -1083,21 +1393,212 @@ void SpeckApp::BuildDeferredRenderTargetsAndBuffers()
 		device->CreateRenderTargetView(mDeferredRTBs[i].Get(), nullptr, rtvHeapHandle);
 		rtvHeapHandle.Offset(1, dxCore.GetRtvDescriptorSize());
 	}
+}
 
-	// Shader resource views
-	// Reset the heap if necessary and create new one for updated descriptors.
-	mPostProcessSrvDescriptorHeap.Reset();
-	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDescPostProcess = {};
-	srvHeapDescPostProcess.NumDescriptors = DEFERRED_RENDER_TARGETS_COUNT;
-	srvHeapDescPostProcess.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	srvHeapDescPostProcess.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	THROW_IF_FAILED(dxCore.GetDevice()->CreateDescriptorHeap(&srvHeapDescPostProcess, IID_PPV_ARGS(&mPostProcessSrvDescriptorHeap)));
+void SpeckApp::BuildSSAORenderTargetsAndBuffers()
+{
+	auto &dxCore = GetEngineCore().GetDirectXCore();
+	auto device = GetEngineCore().GetDirectXCore().GetDevice();
 
-	// Fill out the heap with SRV descriptors for post process.
-	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptorPostProcess(mPostProcessSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
-	for (UINT i = 0; i < DEFERRED_RENDER_TARGETS_COUNT; i++)
+	// Release the previous resources we will be recreating.
+	mSSAOBuffer[0].Reset();
+	mSSAOBuffer[1].Reset();
+
+	// Dimensions
+	mSSAOBufferWidth = (UINT)(dxCore.GetClientWidth() * 0.5f);
+	mSSAOBufferHeight = (UINT)(dxCore.GetClientHeight() * 0.5f);
+	mSSAORTViewport = { 0.0f, 0.0f, (float)mSSAOBufferWidth, (float)mSSAOBufferHeight, 0.0f, 1.0f };
+	mSSAORTScissorRect = { 0, 0, (int)mSSAOBufferWidth, (int)mSSAOBufferHeight };
+
+	// Define the formats and colors
+	mSSAOBufferFormat = DXGI_FORMAT_R8_UNORM;
+	mSSAOBufferClearColor = DirectX::Colors::White;
+
+	// Diffuse albedo render-to-texture creation.
+	D3D12_RESOURCE_DESC diffuseTexDesc;
+	ZeroMemory(&diffuseTexDesc, sizeof(D3D12_RESOURCE_DESC));
+	diffuseTexDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	diffuseTexDesc.Alignment = 0;
+	diffuseTexDesc.Width = mSSAOBufferWidth;
+	diffuseTexDesc.Height = mSSAOBufferHeight;
+	diffuseTexDesc.DepthOrArraySize = 1;
+	diffuseTexDesc.MipLevels = 0;
+	diffuseTexDesc.Format = mSSAOBufferFormat;
+	diffuseTexDesc.SampleDesc.Count = 1;
+	diffuseTexDesc.SampleDesc.Quality = 0;
+	diffuseTexDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	diffuseTexDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+	D3D12_CLEAR_VALUE optClear1;
+	optClear1.Format = diffuseTexDesc.Format;
+	memcpy(optClear1.Color, mSSAOBufferClearColor, sizeof(XMVECTORF32));
+	// the first
+	THROW_IF_FAILED(device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		D3D12_HEAP_FLAG_NONE,
+		&diffuseTexDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		&optClear1,
+		IID_PPV_ARGS(&mSSAOBuffer[0])));
+	// the second
+	THROW_IF_FAILED(device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		D3D12_HEAP_FLAG_NONE,
+		&diffuseTexDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		&optClear1,
+		IID_PPV_ARGS(&mSSAOBuffer[1])));
+
+	// Render target views
+	// the first
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHeapHandle(dxCore.Get_CPU_RTV_HeapStart());
+	rtvHeapHandle.Offset(SWAP_CHAIN_BUFFER_COUNT + DEFERRED_RENDER_TARGETS_COUNT, dxCore.GetRtvDescriptorSize()); // skip the swap chain and deferred RTV descriptors
+	mSSAORTVHeapHandle[0] = rtvHeapHandle;
+	device->CreateRenderTargetView(mSSAOBuffer[0].Get(), nullptr, rtvHeapHandle);
+	// the second
+	rtvHeapHandle.Offset(1, dxCore.GetRtvDescriptorSize()); // skip the first
+	mSSAORTVHeapHandle[1] = rtvHeapHandle;
+	device->CreateRenderTargetView(mSSAOBuffer[1].Get(), nullptr, rtvHeapHandle);
+}
+
+void SpeckApp::BuildRandomVectorBuffer()
+{
+	auto &dxCore = GetEngineCore().GetDirectXCore();
+	auto device = GetEngineCore().GetDirectXCore().GetDevice();
+
+	// Release the previous resources we will be recreating.
+	mRandomVectorMap.Reset();
+	mRandomVectorMapUploadBuffer.Reset();
+
+	D3D12_RESOURCE_DESC texDesc;
+	ZeroMemory(&texDesc, sizeof(D3D12_RESOURCE_DESC));
+	texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	texDesc.Alignment = 0;
+	texDesc.Width = 256;
+	texDesc.Height = 256;
+	texDesc.DepthOrArraySize = 1;
+	texDesc.MipLevels = 1;
+	texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	texDesc.SampleDesc.Count = 1;
+	texDesc.SampleDesc.Quality = 0;
+	texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	texDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	THROW_IF_FAILED(device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		D3D12_HEAP_FLAG_NONE,
+		&texDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&mRandomVectorMap)));
+
+	//
+	// In order to copy CPU memory data into our default buffer, we need to create
+	// an intermediate upload heap. 
+	//
+
+	const UINT num2DSubresources = texDesc.DepthOrArraySize * texDesc.MipLevels;
+	const UINT64 uploadBufferSize = GetRequiredIntermediateSize(mRandomVectorMap.Get(), 0, num2DSubresources);
+
+	THROW_IF_FAILED(device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(mRandomVectorMapUploadBuffer.GetAddressOf())));
+
+	XMCOLOR initData[256 * 256];
+	for (int i = 0; i < 256; ++i)
 	{
-		dxCore.GetDevice()->CreateShaderResourceView(mDeferredRTBs[i].Get(), nullptr, hDescriptorPostProcess);
+		for (int j = 0; j < 256; ++j)
+		{
+			// Random vector in [0,1].  We will decompress in shader to [-1,1].
+			XMFLOAT3 v(MathHelper::RandF(), MathHelper::RandF(), MathHelper::RandF());
+
+			initData[i * 256 + j] = DirectX::PackedVector::XMCOLOR(v.x, v.y, v.z, 0.0f);
+		}
+	}
+
+	D3D12_SUBRESOURCE_DATA subResourceData = {};
+	subResourceData.pData = initData;
+	subResourceData.RowPitch = 256 * sizeof(XMCOLOR);
+	subResourceData.SlicePitch = subResourceData.RowPitch * 256;
+
+	//
+	// Schedule to copy the data to the default resource, and change states.
+	// Note that mCurrSol is put in the GENERIC_READ state so it can be 
+	// read by a shader.
+	//
+
+	dxCore.GetCommandList()->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mRandomVectorMap.Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_COPY_DEST));
+	UpdateSubresources(dxCore.GetCommandList(), mRandomVectorMap.Get(), mRandomVectorMapUploadBuffer.Get(), 0, 0, num2DSubresources, &subResourceData);
+	dxCore.GetCommandList()->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mRandomVectorMap.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ));
+}
+
+void SpeckApp::BuildSRVs()
+{
+	auto &dxCore = GetEngineCore().GetDirectXCore();
+
+	//	SSAO
+	{
+		// create the heap and populate it
+		mSSAOSRVDescriptorHeap.Reset();
+		D3D12_DESCRIPTOR_HEAP_DESC srvHeapDescSSAO = {};
+		srvHeapDescSSAO.NumDescriptors = SSAO_INPUT_TEXTURE_COUNT + 2; // + 2 for ping pong 'previous result' textures
+		srvHeapDescSSAO.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+		srvHeapDescSSAO.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+		THROW_IF_FAILED(dxCore.GetDevice()->CreateDescriptorHeap(&srvHeapDescSSAO, IID_PPV_ARGS(&mSSAOSRVDescriptorHeap)));
+		CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptorCPU_SSAO(mSSAOSRVDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+		CD3DX12_GPU_DESCRIPTOR_HANDLE hDescriptorGPU_SSAO(mSSAOSRVDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+		mSSAOTextureMapsSRVHeapHandle = hDescriptorGPU_SSAO;
+
+		// Fill out the heap with normal view space buffer SRV descriptors
+		dxCore.GetDevice()->CreateShaderResourceView(mDeferredRTBs[DEFERRED_RENDER_TARGET_NORMAL_VIEW_SPACE_MAP].Get(), nullptr, hDescriptorCPU_SSAO);
+		hDescriptorCPU_SSAO.Offset(1, dxCore.GetCbvSrvUavDescriptorSize());
+		hDescriptorGPU_SSAO.Offset(1, dxCore.GetCbvSrvUavDescriptorSize());
+
+		// Fill out the heap with depth buffer SRV descriptors
+		dxCore.GetDevice()->CreateShaderResourceView(mDeferredRTBs[DEFERRED_RENDER_TARGET_DEPTH_MAP].Get(), nullptr, hDescriptorCPU_SSAO);
+		hDescriptorCPU_SSAO.Offset(1, dxCore.GetCbvSrvUavDescriptorSize());
+		hDescriptorGPU_SSAO.Offset(1, dxCore.GetCbvSrvUavDescriptorSize());
+
+		// Fill out the heap with random vector buffer SRV descriptors
+		dxCore.GetDevice()->CreateShaderResourceView(mRandomVectorMap.Get(), nullptr, hDescriptorCPU_SSAO);
+		hDescriptorCPU_SSAO.Offset(1, dxCore.GetCbvSrvUavDescriptorSize());
+		hDescriptorGPU_SSAO.Offset(1, dxCore.GetCbvSrvUavDescriptorSize());
+
+		// Fill out the heap with the first previous result texure buffer SRV descriptors
+		dxCore.GetDevice()->CreateShaderResourceView(mSSAOBuffer[0].Get(), nullptr, hDescriptorCPU_SSAO);
+		mSSAOPreviousResultSRVHeapHandle[0] = hDescriptorGPU_SSAO;
+		hDescriptorCPU_SSAO.Offset(1, dxCore.GetCbvSrvUavDescriptorSize());
+		hDescriptorGPU_SSAO.Offset(1, dxCore.GetCbvSrvUavDescriptorSize());
+
+		// Fill out the heap with the second previous result texure buffer SRV descriptors
+		dxCore.GetDevice()->CreateShaderResourceView(mSSAOBuffer[1].Get(), nullptr, hDescriptorCPU_SSAO);
+		mSSAOPreviousResultSRVHeapHandle[1] = hDescriptorGPU_SSAO;
+		hDescriptorCPU_SSAO.Offset(1, dxCore.GetCbvSrvUavDescriptorSize());
+		hDescriptorGPU_SSAO.Offset(1, dxCore.GetCbvSrvUavDescriptorSize());
+	}
+
+	//	Post-process
+	{
+		mPostProcessSrvDescriptorHeap.Reset();
+		D3D12_DESCRIPTOR_HEAP_DESC srvHeapDescPostProcess = {};
+		srvHeapDescPostProcess.NumDescriptors = POST_PROCESS_INPUT_TEXTURE_COUNT;
+		srvHeapDescPostProcess.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+		srvHeapDescPostProcess.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+		THROW_IF_FAILED(dxCore.GetDevice()->CreateDescriptorHeap(&srvHeapDescPostProcess, IID_PPV_ARGS(&mPostProcessSrvDescriptorHeap)));
+
+		// Fill out the heap with deferred SRV descriptors for post process.
+		CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptorPostProcess(mPostProcessSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+		for (UINT i = 0; i < DEFERRED_RENDER_TARGETS_COUNT; i++)
+		{
+			dxCore.GetDevice()->CreateShaderResourceView(mDeferredRTBs[i].Get(), nullptr, hDescriptorPostProcess);
+			hDescriptorPostProcess.Offset(1, dxCore.GetCbvSrvUavDescriptorSize());
+		}
+
+		// Fill out the heap with SSAO SRV descriptors for post process.
+		dxCore.GetDevice()->CreateShaderResourceView(mSSAOBuffer[1].Get(), nullptr, hDescriptorPostProcess);
 		hDescriptorPostProcess.Offset(1, dxCore.GetCbvSrvUavDescriptorSize());
 	}
 }

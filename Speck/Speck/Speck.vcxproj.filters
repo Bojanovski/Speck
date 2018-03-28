@@ -48,6 +48,9 @@
     <ClCompile Include="FBXSceneManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ManySkeletonsTestingState.cpp">
+      <Filter>Source Files\GameStates</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HumanoidSkeleton.h">
@@ -76,6 +79,9 @@
     </ClInclude>
     <ClInclude Include="FBXSceneManager.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ManySkeletonsTestingState.h">
+      <Filter>Header Files\GameStates</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

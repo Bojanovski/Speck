@@ -9,27 +9,23 @@ cbuffer cbSettings										: register(b0)
 	uint gBackBufferHeight;
 };
 
-Texture2D gTextureMaps[DEFERRED_RENDER_TARGETS_COUNT]	: register(t0);
+Texture2D gTextureMaps[POST_PROCESS_INPUT_TEXTURE_COUNT]	: register(t0);
+
 // Samplers
-SamplerState gsamPointClamp								: register(s0);
+SamplerState gsamPointClamp									: register(s0);
+SamplerState gsamLinearWrap									: register(s1);
 
 struct VertexOut
 {
-	float4 PosH    : SV_POSITION;
-	float2 TexC    : TEXCOORD;
+	float4 PosH		: SV_POSITION;
+	float2 TexC		: TEXCOORD;
 };
 
-float3 TextelToNormalInWorld(float4 normalT)
+float4 ProcessPixel(float2 texCoord, float ambientOcclusion)
 {
-	// Decompress each component from [0,1] to [-1,1].
-	return (2.0f*normalT - 1.0f).xyz;
-}
-
-float4 ProcessPixel(float2 texCoord)
-{
-	float4 color = gTextureMaps[0].SampleLevel(gsamPointClamp, texCoord, 0);
-	float3 normal = TextelToNormalInWorld(gTextureMaps[1].SampleLevel(gsamPointClamp, texCoord, 0));
-	return color * (1.0f + max(0.0f, dot(normal, float3(0.0f, 1.0f, 0.0f))))*0.5f;
+	float4 color = gTextureMaps[POST_PROCESS_INPUT_TEXTURE_DIFFUSE_MAP].SampleLevel(gsamPointClamp, texCoord, 0);
+	float3 normal = gTextureMaps[POST_PROCESS_INPUT_TEXTURE_NORMAL_MAP].SampleLevel(gsamPointClamp, texCoord, 0).xyz;
+	return color * ((ambientOcclusion * 0.5f + 0.5f) + max(0.0f, dot(normal, float3(0.0f, 1.0f, 0.0f))))*0.5f;
 }
 
 float4 main(VertexOut pin) : SV_Target
@@ -43,13 +39,16 @@ float4 main(VertexOut pin) : SV_Target
 	coords[2] = pin.TexC + float2(0.0f, textelDimensions.y);
 	coords[3] = pin.TexC + float2(textelDimensions.x, textelDimensions.y);
 
+	float ambientOcclusion = gTextureMaps[POST_PROCESS_INPUT_SSAO_MAP].SampleLevel(gsamLinearWrap, pin.TexC, 0).r;
+
 	// Super sampling part
 	float4 color = 0.0f;
-	color += ProcessPixel(coords[0]);
-	color += ProcessPixel(coords[1]);
-	color += ProcessPixel(coords[2]);
-	color += ProcessPixel(coords[3]);
+	color += ProcessPixel(coords[0], ambientOcclusion);
+	color += ProcessPixel(coords[1], ambientOcclusion);
+	color += ProcessPixel(coords[2], ambientOcclusion);
+	color += ProcessPixel(coords[3], ambientOcclusion);
 	color /= 4.0f;
+
 
 	return color;
 }

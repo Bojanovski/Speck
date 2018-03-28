@@ -153,9 +153,12 @@ FbxScene * FBXSceneManager::FixSceneSaveScene(const wchar_t * filePath)
 
 		// Destroy the exporter.
 		exporter->Destroy();
+
+		return scene;
 	}
 	else
 	{
 		LOG("Scene not found.", WARNING);
+		return nullptr;
 	}
 }

@@ -25,7 +25,7 @@ private:
 
 private:
 	Speck::FPCameraController mCC;
-	std::vector<std::unique_ptr<HumanoidSkeleton>> mHumanoidSkeletons;
+	std::unique_ptr<HumanoidSkeleton> mHumanoidSkeleton;
 	FBXSceneManager mFBXSceneManager;
 };
 

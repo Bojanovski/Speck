@@ -45,7 +45,6 @@ namespace Speck
 		float DeltaTime = 0.0f;
 	};
 
-	// For upload to the graphics card.
 	struct MaterialBufferData
 	{
 		MaterialBufferData(Material *mat)
@@ -66,6 +65,26 @@ namespace Speck
 		DirectX::XMFLOAT4X4 TexTransform = MathHelper::Identity4x4();
 	};
 
+	struct SSAOData
+	{
+		DirectX::XMFLOAT4X4 Proj;
+		DirectX::XMFLOAT4X4 InvProj;
+		DirectX::XMFLOAT4X4 ProjTex;
+
+		UINT SSAOMapsWidth;
+		UINT SSAOMapsHeight;
+		UINT TextureMapsWidth;
+		UINT TextureMapsHeight;
+
+		float OcclusionRadius;
+		float OcclusionFadeStart;
+		float OcclusionFadeEnd;
+		float SurfaceEpsilon;
+
+		DirectX::XMFLOAT4 OffsetVectors[SSAO_RANDOM_SAMPLES_N];
+		DirectX::XMFLOAT4 BlurWeights[SSAO_BLUR_WEIGHTS_N];
+	};
+
 	// Stores the resources needed for the CPU to build the command lists
 	// for a frame.  
 	struct FrameResource
@@ -84,6 +103,7 @@ namespace Speck
 		// We cannot update a cbuffer until the GPU is done processing the commands
 		// that reference it.  So each frame needs their own cbuffers.
 		std::unique_ptr<UploadBuffer<PassConstants>> PassCB = nullptr;
+		std::unique_ptr<UploadBuffer<SSAOData>> SSAODataBuffer = nullptr;
 		std::unique_ptr<UploadBuffer<MaterialBufferData>> MaterialBuffer = nullptr;
 		std::unique_ptr<UploadBuffer<RenderItemConstants>> RenderItemConstantsBuffer = nullptr;
 

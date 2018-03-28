@@ -19,7 +19,10 @@
     <Filter Include="Resource Files\Shaders">
       <UniqueIdentifier>{7239437d-9681-4cc5-a1e1-b4ad0e1ff330}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Resource Files\Shaders\specksCS">
+    <Filter Include="Resource Files\Shaders\PostProcess">
+      <UniqueIdentifier>{23b7eda1-ef96-4114-9d0e-6470ac59b777}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Shaders\SpecksCS">
       <UniqueIdentifier>{b1da27f4-393f-4189-ba80-263c5734a259}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -217,12 +220,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="defferedAssemblerPS.hlsl">
-      <Filter>Resource Files\Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="defferedAssemblerVS.hlsl">
-      <Filter>Resource Files\Shaders</Filter>
-    </FxCompile>
     <FxCompile Include="irrMapCS.hlsl">
       <Filter>Resource Files\Shaders</Filter>
     </FxCompile>
@@ -233,40 +230,40 @@
       <Filter>Resource Files\Shaders</Filter>
     </FxCompile>
     <FxCompile Include="specksCS_phase0.hlsl">
-      <Filter>Resource Files\Shaders\specksCS</Filter>
+      <Filter>Resource Files\Shaders\SpecksCS</Filter>
     </FxCompile>
     <FxCompile Include="specksCS_phase1.hlsl">
-      <Filter>Resource Files\Shaders\specksCS</Filter>
+      <Filter>Resource Files\Shaders\SpecksCS</Filter>
     </FxCompile>
     <FxCompile Include="specksCS_phase2.hlsl">
-      <Filter>Resource Files\Shaders\specksCS</Filter>
+      <Filter>Resource Files\Shaders\SpecksCS</Filter>
     </FxCompile>
     <FxCompile Include="specksCS_phaseFinal.hlsl">
-      <Filter>Resource Files\Shaders\specksCS</Filter>
+      <Filter>Resource Files\Shaders\SpecksCS</Filter>
     </FxCompile>
     <FxCompile Include="specksCS_phase3_0.hlsl">
-      <Filter>Resource Files\Shaders\specksCS</Filter>
+      <Filter>Resource Files\Shaders\SpecksCS</Filter>
     </FxCompile>
     <FxCompile Include="specksCS_phase3_1.hlsl">
-      <Filter>Resource Files\Shaders\specksCS</Filter>
+      <Filter>Resource Files\Shaders\SpecksCS</Filter>
     </FxCompile>
     <FxCompile Include="specksCS_phase4.hlsl">
-      <Filter>Resource Files\Shaders\specksCS</Filter>
+      <Filter>Resource Files\Shaders\SpecksCS</Filter>
     </FxCompile>
     <FxCompile Include="specksCS_phase6.hlsl">
-      <Filter>Resource Files\Shaders\specksCS</Filter>
+      <Filter>Resource Files\Shaders\SpecksCS</Filter>
     </FxCompile>
     <FxCompile Include="specksCS_phase5_0.hlsl">
-      <Filter>Resource Files\Shaders\specksCS</Filter>
+      <Filter>Resource Files\Shaders\SpecksCS</Filter>
     </FxCompile>
     <FxCompile Include="specksCS_phase5_1.hlsl">
-      <Filter>Resource Files\Shaders\specksCS</Filter>
+      <Filter>Resource Files\Shaders\SpecksCS</Filter>
     </FxCompile>
     <FxCompile Include="specksCS_phase5_2.hlsl">
-      <Filter>Resource Files\Shaders\specksCS</Filter>
+      <Filter>Resource Files\Shaders\SpecksCS</Filter>
     </FxCompile>
     <FxCompile Include="specksCS_phase5_3.hlsl">
-      <Filter>Resource Files\Shaders\specksCS</Filter>
+      <Filter>Resource Files\Shaders\SpecksCS</Filter>
     </FxCompile>
     <FxCompile Include="staticMeshPS.hlsl">
       <Filter>Resource Files\Shaders</Filter>
@@ -276,6 +273,21 @@
     </FxCompile>
     <FxCompile Include="skinnedMeshVS.hlsl">
       <Filter>Resource Files\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="defferedAssemblerPS.hlsl">
+      <Filter>Resource Files\Shaders\PostProcess</Filter>
+    </FxCompile>
+    <FxCompile Include="defferedAssemblerVS.hlsl">
+      <Filter>Resource Files\Shaders\PostProcess</Filter>
+    </FxCompile>
+    <FxCompile Include="SSAOPS.hlsl">
+      <Filter>Resource Files\Shaders\PostProcess</Filter>
+    </FxCompile>
+    <FxCompile Include="SSAOVS.hlsl">
+      <Filter>Resource Files\Shaders\PostProcess</Filter>
+    </FxCompile>
+    <FxCompile Include="SSAOBlurPS.hlsl">
+      <Filter>Resource Files\Shaders\PostProcess</Filter>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
@@ -292,9 +304,12 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="specksCS_Root.hlsl">
-      <Filter>Resource Files\Shaders\specksCS</Filter>
+      <Filter>Resource Files\Shaders\SpecksCS</Filter>
     </None>
     <None Include="MathHelper.hlsl" />
+    <None Include="SSAORoot.hlsl">
+      <Filter>Resource Files\Shaders\PostProcess</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="SpeckEngine.rc">

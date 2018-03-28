@@ -165,7 +165,7 @@ static HANDLE self;
 	void D3DApp::CreateRtvAndDsvDescriptorHeaps()
 	{
 		D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc;
-		rtvHeapDesc.NumDescriptors = SWAP_CHAIN_BUFFER_COUNT + DEFERRED_RENDER_TARGETS_COUNT;
+		rtvHeapDesc.NumDescriptors = GetRTVDescriptorCount();
 		rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 		rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 		rtvHeapDesc.NodeMask = 0;
@@ -173,7 +173,7 @@ static HANDLE self;
 			&rtvHeapDesc, IID_PPV_ARGS(GetEngineCore().mDirectXCore->mRtvHeap.GetAddressOf())));
 
 		D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc;
-		dsvHeapDesc.NumDescriptors = 1 + 1; // one additional for deferred render targets (can have a different size than the one on the backbuffer)
+		dsvHeapDesc.NumDescriptors = GetDSVDescriptorCount();
 		dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
 		dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 		dsvHeapDesc.NodeMask = 0;

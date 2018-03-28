@@ -70,16 +70,28 @@ namespace Speck
 			TexturesDescriptorTable,
 			Count // Number of elements in this enum
 		};
+		enum struct SSAORootParameter
+		{
+			PreviousResultTextureDescriptorTable = 0,
+			PerPassRootConstant,
+			DataBufferRootDescriptor,
+			TexturesDescriptorTable,
+			Count // Number of elements in this enum
+		};
 
 	private:
-		virtual void OnResize()override;
+		virtual void OnResize() override;
 		// Update the system based values
-		virtual void Update(const Timer& gt)override;
+		virtual void Update(const Timer& gt) override;
 		// Update that is dependant on the command list.
-		virtual void PreDrawUpdate(const Timer& gt)override;
+		virtual void PreDrawUpdate(const Timer& gt) override;
 		// Opens and closes the command list for current frame resource.
-		virtual void Draw(const Timer& gt)override;
+		virtual void Draw(const Timer& gt) override;
 
+		virtual int GetRTVDescriptorCount() override;
+		virtual int GetDSVDescriptorCount() override;
+
+		void UpdateSSAODataBuffer(const Timer& gt);
 		void UpdateMaterialBuffer(const Timer& gt);
 		void BuildDefaultTextures();
 		void BuildDefaultMaterials();
@@ -90,6 +102,9 @@ namespace Speck
 		void BuildPSOs();
 		void BuildFrameResources();
 		void BuildDeferredRenderTargetsAndBuffers();
+		void BuildSSAORenderTargetsAndBuffers();
+		void BuildRandomVectorBuffer();
+		void BuildSRVs();
 
 	private:
 		std::unordered_map<std::string, std::unique_ptr<MeshGeometry>>		mGeometries;
@@ -103,7 +118,10 @@ namespace Speck
 		std::vector<std::unique_ptr<FrameResource>> mFrameResources;
 		FrameResource* mCurrFrameResource = nullptr;
 		int mCurrFrameResourceIndex = 0;
-		
+		int mNumFramesDirty = NUM_FRAME_RESOURCES;
+
+		UINT mSuperSampling = 2;
+
 		// To draw 3d object on MRT.
 		Microsoft::WRL::ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
 
@@ -116,12 +134,33 @@ namespace Speck
 		CD3DX12_CPU_DESCRIPTOR_HANDLE mDeferredDSVHeapHandle;
 		D3D12_VIEWPORT mDeferredRTViewport;
 		D3D12_RECT mDeferredRTScissorRect;
-		UINT mSuperSampling = 2;
-		// PSO used for screen objects like postprocess back buffer.
-		Microsoft::WRL::ComPtr<ID3D12PipelineState> mScreenObjPSO;
-		// Signature and heaps for postprocess.
-		Microsoft::WRL::ComPtr<ID3D12RootSignature> mPostProcessRootSignature = nullptr;
+
+		// Utility random texture
+		Microsoft::WRL::ComPtr<ID3D12Resource> mRandomVectorMap;
+		Microsoft::WRL::ComPtr<ID3D12Resource> mRandomVectorMapUploadBuffer;
+
+		// SSAO (screen space ambient occlusion)
+		UINT mSSAOReadBufferIndex = 0;
+		UINT mSSAOWriteBufferIndex = 1;
+		Microsoft::WRL::ComPtr<ID3D12Resource> mSSAOBuffer[2]; // two for ping-ponging
+		DXGI_FORMAT mSSAOBufferFormat;
+		DirectX::XMVECTORF32 mSSAOBufferClearColor;
+		CD3DX12_CPU_DESCRIPTOR_HANDLE mSSAORTVHeapHandle[2]; // two for ping-ponging
+		D3D12_VIEWPORT mSSAORTViewport;
+		D3D12_RECT mSSAORTScissorRect;
+		Microsoft::WRL::ComPtr<ID3D12PipelineState> mSSAOPSO;
+		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> mSSAOSRVDescriptorHeap = nullptr;
+		CD3DX12_GPU_DESCRIPTOR_HANDLE mSSAOTextureMapsSRVHeapHandle;
+		CD3DX12_GPU_DESCRIPTOR_HANDLE mSSAOPreviousResultSRVHeapHandle[2]; // two for ping-ponging
+		Microsoft::WRL::ComPtr<ID3D12RootSignature> mSSAORootSignature = nullptr;
+		UINT mSSAOBufferWidth, mSSAOBufferHeight;
+		UINT mSSAOBlurringIterationCount = 2;
+		Microsoft::WRL::ComPtr<ID3D12PipelineState> mBlurredSSAOPSO; // Blurred SSAO (Edge preserving blur)
+
+		// Signatures, PSO and heaps for postprocess.
+		Microsoft::WRL::ComPtr<ID3D12PipelineState> mPostProcessPSO;
 		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> mPostProcessSrvDescriptorHeap = nullptr;
+		Microsoft::WRL::ComPtr<ID3D12RootSignature> mPostProcessRootSignature = nullptr;
 	};
 }
 

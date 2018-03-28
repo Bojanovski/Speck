@@ -52,6 +52,8 @@ private:
 	std::unordered_map < std::string, std::string > mNodesParents; 
 	enum { None, BindPose, Animating, Simulating } mState = None;
 	DirectX::XMFLOAT4X4 mWorld;
+	// Total number of specks in this skeleton
+	int mSpeckCount; 
 };
 
 #endif

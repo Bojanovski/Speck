@@ -18,6 +18,7 @@ namespace Speck
 
 		Microsoft::WRL::ComPtr<ID3D12PipelineState> mPSO;
 		std::vector<std::unique_ptr<RenderItem>> mRItems;
+		bool mVisible = true;
 	};
 }
 

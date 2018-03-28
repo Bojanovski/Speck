@@ -152,7 +152,7 @@ void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp, bool useSkinning)
 	// some constants
 	const float speckMass = 2.0f;
 	const float frictionCoefficient = 0.8f;
-	int speckCount = 0;
+	mSpeckCount = 0;
 
 	// Create a body made out of specks
 	int numStacks = mScene->GetSrcObjectCount<FbxAnimStack>();
@@ -213,7 +213,7 @@ void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp, bool useSkinning)
 						command.newSpecks.push_back(speck);
 					}
 
-					speckCount += (int)command.newSpecks.size();
+					mSpeckCount += (int)command.newSpecks.size();
 					ProcessBone(node, &command, jsonBoneName);
 					break;
 				}
@@ -318,7 +318,7 @@ void HumanoidSkeleton::CreateSpecksBody(Speck::App *pApp, bool useSkinning)
 					// should use SDF gradient?
 					commandForJoint.rigidBodyJoint.calculateSDFGradient = (commandForJoint.newSpecks.size() > 2);
 
-					speckCount += (int)commandForJoint.newSpecks.size();
+					mSpeckCount += (int)commandForJoint.newSpecks.size();
 					GetWorld().ExecuteCommand(commandForJoint);
 				}
 			}
@@ -655,6 +655,7 @@ void HumanoidSkeleton::Initialize(const wchar_t * fbxFilePath, const wchar_t *sp
 
 	mScene = mSceneManager->GetScene(fbxFilePath);
 	assert(mScene);
+	//mSceneManager->FixSceneSaveScene(fbxFilePath);
 
 	// Open the JSON file, read from it and close it
 	fstream fileStream;

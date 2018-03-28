@@ -161,6 +161,8 @@ void SpeckWorld::Draw_Scene()
 	// For all PSO groups
 	for (auto &grp : mPSOGroups)
 	{
+		if (!grp.second->mVisible) continue;
+
 		dxCore.GetCommandList()->SetPipelineState(grp.second->mPSO.Get());
 
 		// For each render item...

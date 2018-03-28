@@ -39,6 +39,9 @@ namespace Speck
 		// Opens and closes the command list for current frame resource.
 		virtual void Draw(const Timer& gt) = 0;
 
+		virtual int GetRTVDescriptorCount() = 0;
+		virtual int GetDSVDescriptorCount() = 0;
+
 	protected:
 		bool InitMainWindow();
 		bool InitDirect3D();
@@ -56,7 +59,7 @@ namespace Speck
 		void LogAdapterOutputs(IDXGIAdapter* adapter);
 		void LogOutputDisplayModes(IDXGIOutput* output, DXGI_FORMAT format);
 
-	protected:
+	private:
 		static D3DApp* mApp;
 
 		HINSTANCE	mhAppInst = nullptr;			// application instance handle

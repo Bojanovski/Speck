@@ -5,6 +5,7 @@
 #include <App.h>
 #include "SkeletonTestingState.h"
 #include "SkinnedSkeletonTestingState.h"
+#include "ManySkeletonsTestingState.h"
 #include "JointTestingState.h"
 #include "JointShowcaseState.h"
 
@@ -59,6 +60,19 @@ int Test3(HINSTANCE hInstance)
 	if (!app->Initialize())
 		return 1;
 
+	int result = app->Run(make_unique<ManySkeletonsTestingState>(*ec));
+	return result;
+}
+
+int Test4(HINSTANCE hInstance)
+{
+	unique_ptr<EngineCore> ec;
+	unique_ptr<World> w;
+	unique_ptr<App> app;
+	CreateSpeckApp(hInstance, 0.5f, 100, 1000, &ec, &w, &app);
+	if (!app->Initialize())
+		return 1;
+
 	int result = app->Run(make_unique<SkinnedSkeletonTestingState>(*ec));
 	return result;
 }
@@ -72,7 +86,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 
 	try
 	{
-		return Test2(hInstance);
+		return Test4(hInstance);
 	}
 	catch (Exception &ex)
 	{

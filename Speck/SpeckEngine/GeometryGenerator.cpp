@@ -217,6 +217,51 @@ GeometryGenerator::StaticMeshData GeometryGenerator::CreateSphere(float radius, 
     return meshData;
 }
  
+GeometryGenerator::PointCloud GeometryGenerator::CreateOffsetVectors(float minRadius, float maxRadius)
+{
+	// Start with 14 uniformly distributed vectors.  We choose the 8 corners of the cube
+	// and the 6 center points along each cube face.  We always alternate the points on 
+	// opposites sides of the cubes.  This way we still get the vectors spread out even
+	// if we choose to use less than 14 samples.
+	PointCloud pc;
+	pc.Positions.resize(14);
+
+	// 8 cube corners
+	pc.Positions[0] = XMFLOAT4(+1.0f, +1.0f, +1.0f, 0.0f);
+	pc.Positions[1] = XMFLOAT4(-1.0f, -1.0f, -1.0f, 0.0f);
+
+	pc.Positions[2] = XMFLOAT4(-1.0f, +1.0f, +1.0f, 0.0f);
+	pc.Positions[3] = XMFLOAT4(+1.0f, -1.0f, -1.0f, 0.0f);
+
+	pc.Positions[4] = XMFLOAT4(+1.0f, +1.0f, -1.0f, 0.0f);
+	pc.Positions[5] = XMFLOAT4(-1.0f, -1.0f, +1.0f, 0.0f);
+
+	pc.Positions[6] = XMFLOAT4(-1.0f, +1.0f, -1.0f, 0.0f);
+	pc.Positions[7] = XMFLOAT4(+1.0f, -1.0f, +1.0f, 0.0f);
+
+	// 6 centers of cube faces
+	pc.Positions[8] = XMFLOAT4(-1.0f, 0.0f, 0.0f, 0.0f);
+	pc.Positions[9] = XMFLOAT4(+1.0f, 0.0f, 0.0f, 0.0f);
+
+	pc.Positions[10] = XMFLOAT4(0.0f, -1.0f, 0.0f, 0.0f);
+	pc.Positions[11] = XMFLOAT4(0.0f, +1.0f, 0.0f, 0.0f);
+
+	pc.Positions[12] = XMFLOAT4(0.0f, 0.0f, -1.0f, 0.0f);
+	pc.Positions[13] = XMFLOAT4(0.0f, 0.0f, +1.0f, 0.0f);
+
+	for (int i = 0; i < 14; ++i)
+	{
+		// Create random lengths in [0.25, 1.0].
+		float s = MathHelper::RandF(minRadius, maxRadius);
+
+		XMVECTOR v = s * XMVector4Normalize(XMLoadFloat4(&pc.Positions[i]));
+
+		XMStoreFloat4(&pc.Positions[i], v);
+	}
+
+	return pc;
+}
+
 void GeometryGenerator::Subdivide(StaticMeshData& meshData)
 {
 	// Save a copy of the input geometry.

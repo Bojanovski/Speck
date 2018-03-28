@@ -82,6 +82,14 @@ namespace Speck
 			DLL_EXPORT virtual int Execute(void *ptIn, CommandResult *result) const override;
 		};
 
+		struct SetPSOGroupVisibilityCommand : WorldCommand
+		{
+			std::string PSOGroupName = "";
+			bool visible = true;
+		protected:
+			DLL_EXPORT virtual int Execute(void *ptIn, CommandResult *result) const override;
+		};
+
 		//
 		// Physics
 		//

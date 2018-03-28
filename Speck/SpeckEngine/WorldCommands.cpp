@@ -265,6 +265,22 @@ int AddEnviromentMapCommand::Execute(void * ptIn, CommandResult *result) const
 	return 0;
 }
 
+int SetPSOGroupVisibilityCommand::Execute(void * ptIn, CommandResult * result) const
+{
+	SpeckApp *sApp = static_cast<SpeckApp*>(ptIn);
+	SpeckWorld *sWorld = static_cast<SpeckWorld*>(&sApp->GetWorld());
+
+	auto srcRes = sWorld->mPSOGroups.find(PSOGroupName);
+	if (srcRes == sWorld->mPSOGroups.end() || srcRes->second->mPSO == nullptr)
+	{
+		LOG(L"PSO group with this key does not exists, returning.", ERROR);
+		return 1;
+	}
+
+	srcRes->second->mVisible = visible;
+	return 0;
+}
+
 AddStaticColliderCommand::AddStaticColliderCommand() : WorldCommand(), ID(IDCounter++) {}
 
 int AddStaticColliderCommand::Execute(void * ptIn, CommandResult *result) const

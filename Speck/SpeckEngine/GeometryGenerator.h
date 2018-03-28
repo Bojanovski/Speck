@@ -128,6 +128,11 @@ namespace Speck
 			std::vector<uint16> mIndices16;
 		};
 
+		struct PointCloud
+		{
+			std::vector<DirectX::XMFLOAT4> Positions;
+		};
+
 		///<summary>
 		/// Creates a box centered at the origin with the given dimensions, where each
 		/// face has m rows and n columns of vertices.
@@ -163,6 +168,11 @@ namespace Speck
 		/// Creates a quad aligned with the screen.  This is useful for postprocessing and screen effects.
 		///</summary>
 		StaticMeshData CreateQuad(float x, float y, float w, float h, float depth);
+
+		///<summary>
+		/// Creates a point cloud with 14 uniformly distributed random vectors.
+		///</summary>
+		static PointCloud CreateOffsetVectors(float minRadius = 0.25f, float maxRadius = 1.0f);
 
 	private:
 		void Subdivide(StaticMeshData& meshData);

@@ -12,8 +12,9 @@ FrameResource::FrameResource(ID3D12Device* device, UINT passCount, UINT maxRende
 		IID_PPV_ARGS(CmdListAlloc.GetAddressOf())));
 
     PassCB											= make_unique<UploadBuffer<PassConstants>>(device, passCount, true);
-    MaterialBuffer									= make_unique<UploadBuffer<MaterialBufferData>>(device, materialCount, false);
-	RenderItemConstantsBuffer					= make_unique<UploadBuffer<RenderItemConstants>>(device, maxRenderItemsCount, true);
+	SSAODataBuffer									= make_unique<UploadBuffer<SSAOData>>(device, 1, false);
+	MaterialBuffer									= make_unique<UploadBuffer<MaterialBufferData>>(device, materialCount, false);
+	RenderItemConstantsBuffer						= make_unique<UploadBuffer<RenderItemConstants>>(device, maxRenderItemsCount, true);
 }
 
 FrameResource::~FrameResource()

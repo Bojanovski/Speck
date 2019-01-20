@@ -6,7 +6,7 @@ More info will be added soon.
 
 --------------------------------------------------------------------
 
-Required hardware: 
+Requirements: 
 - Directx12 compatible graphics card
 - Windows 10 operating system
 

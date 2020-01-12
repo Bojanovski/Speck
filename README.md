@@ -2,6 +2,8 @@
 
 This is implementation of my Master Thesis that later resulted in a paper for Eurographics 2018.
 
+![A knight partially rendered as mesh and partially as it's respective particle model](knight_body.png)
+
 Paper link:
 
 https://diglib.eg.org/handle/10.2312/egs20181031
